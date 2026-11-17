@@ -1,3 +1,21 @@
+[build-system]
+requires = ["setuptools>=61.0.0"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "jobsnap"
+version = "1.0.0"
+description = "AI-Powered Resume Analyzer and Intelligent Job Finder"
+readme = "README.md"
+requires-python = ">=3.12"
+dynamic = ["dependencies"]
+
+[tool.setuptools.dynamic]
+dependencies = { file = ["requirements.txt"] }
+
+[tool.setuptools]
+packages = ["app", "api"]
+
 [tool.vercel]
 entrypoint = "run:app"
 

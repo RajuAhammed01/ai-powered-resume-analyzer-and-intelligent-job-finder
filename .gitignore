@@ -6,4 +6,5 @@ instance/
 uploads/
 *.db
 .vercel/
+*.egg-info/
 data/test_*.json
