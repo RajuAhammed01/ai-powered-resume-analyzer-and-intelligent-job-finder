@@ -61,6 +61,7 @@ USER_DASHBOARD_CACHE = {}
 
 
 @main_bp.route("/")
+@main_bp.route("/api/index")
 def index():
     return render_template("index.html")
 
