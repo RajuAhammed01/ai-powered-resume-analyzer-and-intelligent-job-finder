@@ -1,0 +1,48 @@
+{
+  "metadata": {
+    "dataset_name": "JobSnap User Authentication & Login Activity Dataset",
+    "generated_at": "2026-11-17T15:00:46.221042+00:00",
+    "total_users": 1,
+    "storage_type": "email_indexed_hashmap",
+    "hash_algorithm": "werkzeug_scrypt_pbkdf2_salted"
+  },
+  "users_hashmap": {
+    "ridoyraihan@gmail.com": {
+      "user_id": 1,
+      "name": "ridoy",
+      "email": "ridoyraihan@gmail.com",
+      "password_hash": "scrypt:32768:8:1$glzuNFkGNpS9x4XI$2ae8197ca56af5dbb996f995d5e2ea69e8aec260945b8d83f7194ff5c3ebc2319d4f5f1eebb5c01f093193e94604b4088f0b0f3083e519293d454d299fcc9b32",
+      "status": "active",
+      "signup_date": "2026-11-13 08:24:56",
+      "created_at_iso": "2026-11-13T08:24:56.312008",
+      "last_login_date": "2026-11-17 15:00:46",
+      "last_login_iso": "2026-11-17T15:00:46.155671",
+      "last_login_ip": "127.0.0.1",
+      "total_logins": 4,
+      "login_history": [
+        {
+          "id": 2,
+          "user_id": 1,
+          "email": "ridoyraihan@gmail.com",
+          "status": "SUCCESS",
+          "ip_address": "127.0.0.1",
+          "user_agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/157.0.0.0 Safari/537.36 Edg/157.0.0.0",
+          "failure_reason": "",
+          "timestamp": "2026-11-17T15:00:46.155671",
+          "formatted_date": "2026-11-17 15:00:46"
+        },
+        {
+          "id": 1,
+          "user_id": 1,
+          "email": "ridoyraihan@gmail.com",
+          "status": "SUCCESS",
+          "ip_address": "127.0.0.1",
+          "user_agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/157.0.0.0 Safari/537.36 Edg/157.0.0.0",
+          "failure_reason": "",
+          "timestamp": "2026-11-13T08:42:51.739628",
+          "formatted_date": "2026-11-13 08:42:51"
+        }
+      ]
+    }
+  }
+}

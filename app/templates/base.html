@@ -1,0 +1,264 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{% block title %}JobSnap — Enterprise AI Recruitment Platform{% endblock %}</title>
+    <!-- Google Fonts Inter & FontAwesome -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+    {% if csrf_token %}
+    <meta name="csrf-token" content="{{ csrf_token() }}">
+    {% endif %}
+    <script>
+        (function() {
+            var savedTheme = localStorage.getItem('jobsnap_theme');
+            if (savedTheme === 'dark') {
+                document.documentElement.setAttribute('data-theme', 'dark');
+            }
+        })();
+    </script>
+</head>
+<body>
+
+{% if current_user.is_authenticated and not is_auth_page %}
+    <!-- Logged In Layout with Dark Navy Sidebar -->
+    <div class="app-layout">
+        <aside class="app-sidebar">
+            <div class="sidebar-header">
+                <div class="brand-logo-icon">
+                    <i class="fa-solid fa-briefcase"></i>
+                </div>
+                <a href="{{ url_for('main.dashboard') }}" class="brand-title">Job<span>Snap</span></a>
+            </div>
+            
+            <nav class="sidebar-nav">
+                <a href="{{ url_for('main.dashboard') }}" class="nav-item-link {% if request.endpoint == 'main.dashboard' %}active{% endif %}">
+                    <i class="fa-solid fa-house"></i>
+                    <span>Dashboard</span>
+                </a>
+                <a href="{{ url_for('resume.upload') }}" class="nav-item-link {% if request.endpoint in ['resume.upload', 'resume.resume_analysis'] %}active{% endif %}">
+                    <i class="fa-solid fa-cloud-arrow-up"></i>
+                    <span>Upload Resume</span>
+                </a>
+                <a href="{{ url_for('jobs.results') }}" class="nav-item-link {% if request.endpoint in ['jobs.results', 'jobs.job_detail'] %}active{% endif %}">
+                    <i class="fa-solid fa-briefcase"></i>
+                    <span>Job Recommendations</span>
+                </a>
+                <a href="{{ url_for('jobs.saved_jobs') }}" class="nav-item-link {% if request.endpoint == 'jobs.saved_jobs' %}active{% endif %}">
+                    <i class="fa-regular fa-bookmark"></i>
+                    <span>Saved Jobs</span>
+                </a>
+                <a href="{{ url_for('preferences.preferences') }}" class="nav-item-link {% if request.endpoint == 'preferences.preferences' %}active{% endif %}">
+                    <i class="fa-solid fa-sliders"></i>
+                    <span>Job Preferences</span>
+                </a>
+                <a href="{{ url_for('main.profile') }}" class="nav-item-link {% if request.endpoint == 'main.profile' %}active{% endif %}">
+                    <i class="fa-regular fa-user"></i>
+                    <span>Profile & Settings</span>
+                </a>
+            </nav>
+
+            <div class="sidebar-footer">
+                <a href="{{ url_for('auth.logout') }}" class="nav-item-link sidebar-logout-link">
+                    <i class="fa-solid fa-arrow-right-from-bracket"></i>
+                    <span>Logout</span>
+                </a>
+            </div>
+        </aside>
+
+        <!-- Mobile Sidebar Overlay Backdrop -->
+        <div class="sidebar-overlay" id="sidebarOverlay" onclick="toggleMobileSidebar()"></div>
+
+        <div class="main-wrapper">
+            <header class="app-topbar">
+                <div class="topbar-left">
+                    <button type="button" class="btn btn-outline btn-sm mobile-hamburger-btn" onclick="toggleMobileSidebar()" title="Toggle Navigation Menu">
+                        <i class="fa-solid fa-bars"></i>
+                    </button>
+                    <!-- Global Search Input -->
+                    <form action="{{ url_for('jobs.results') }}" method="GET" class="topbar-search-form">
+                        <i class="fa-solid fa-magnifying-glass topbar-search-icon"></i>
+                        <input type="text" name="q" class="topbar-search-input" placeholder="Search for jobs..." value="{{ request.args.get('q', '') }}">
+                    </form>
+                </div>
+
+                <div class="topbar-user">
+                    <a href="{{ url_for('resume.upload') }}" class="btn btn-dark-pill btn-sm topbar-btn-upload">
+                        <i class="fa-solid fa-plus" style="font-size: 0.78rem;"></i> <span class="topbar-btn-text">Upload Resume</span>
+                    </a>
+                    <a href="{{ url_for('jobs.results') }}" class="btn btn-outline-pill btn-sm topbar-btn-find">
+                        <i class="fa-solid fa-magnifying-glass"></i> <span class="topbar-btn-text">Find Jobs</span>
+                    </a>
+
+                    <!-- Notification Icon -->
+                    <div class="topbar-notification-btn" title="Notifications">
+                        <i class="fa-solid fa-bell"></i>
+                        <span class="notification-dot"></span>
+                    </div>
+
+                    <!-- User Profile Avatar & Identity -->
+                    <a href="{{ url_for('main.profile') }}" class="topbar-user-profile-link" title="Account Profile & Settings">
+                        <div class="user-avatar-badge">
+                            {% if current_user.profile_image %}
+                                <img src="{{ url_for('main.serve_avatar', filename=current_user.profile_image) }}" alt="{{ current_user.name }}" class="topbar-avatar-img">
+                            {% else %}
+                                {{ current_user.name[0] if current_user.name else 'U' }}
+                            {% endif %}
+                        </div>
+                        <div class="topbar-user-meta">
+                            <div class="user-name-text">
+                                {{ current_user.name if current_user.name else 'User' }} <i class="fa-solid fa-chevron-down" style="font-size: 0.65rem; color: #94A3B8; margin-left: 0.2rem;"></i>
+                            </div>
+                            <div class="user-name-sub">{{ current_user.email }}</div>
+                        </div>
+                    </a>
+                </div>
+            </header>
+
+            <main class="content-container">
+                {% with messages = get_flashed_messages(with_categories=true) %}
+                    {% if messages %}
+                        <div class="flash-alert-container">
+                            {% for category, message in messages %}
+                                <div class="alert-message alert-{{ category }}">
+                                    <span>
+                                        {% if category == 'success' %}
+                                            <i class="fa-solid fa-circle-check" style="margin-right: 0.5rem; color: #10b981;"></i>
+                                        {% elif category in ['danger', 'error'] %}
+                                            <i class="fa-solid fa-circle-exclamation" style="margin-right: 0.5rem; color: #ef4444;"></i>
+                                        {% elif category == 'warning' %}
+                                            <i class="fa-solid fa-triangle-exclamation" style="margin-right: 0.5rem; color: #f59e0b;"></i>
+                                        {% else %}
+                                            <i class="fa-solid fa-circle-info" style="margin-right: 0.5rem; color: #3b82f6;"></i>
+                                        {% endif %}
+                                        {{ message }}
+                                    </span>
+                                    <i class="fa-solid fa-xmark" style="cursor: pointer; opacity: 0.7; transition: opacity 0.2s;" onmouseover="this.style.opacity='1'" onmouseout="this.style.opacity='0.7'" onclick="this.parentElement.remove();"></i>
+                                </div>
+                            {% endfor %}
+                        </div>
+                    {% endif %}
+                {% endwith %}
+
+                {% block content %}{% endblock %}
+            </main>
+        </div>
+    </div>
+{% else %}
+    <!-- Standalone Landing / Auth Navigation -->
+    <header class="landing-nav">
+        <a href="{{ url_for('main.index') }}" style="display: flex; align-items: center; gap: 0.75rem; text-decoration: none;">
+            <div class="brand-logo-icon">
+                <i class="fa-solid fa-bolt"></i>
+            </div>
+            <span class="brand-title">Job<span>Snap</span></span>
+        </a>
+
+        <div class="landing-links">
+            <a href="{{ url_for('main.index') }}" class="landing-nav-link">Home</a>
+            <a href="{{ url_for('main.index') }}#features" class="landing-nav-link">Features</a>
+            <a href="{{ url_for('main.index') }}#how-it-works" class="landing-nav-link">How It Works</a>
+            <a href="{{ url_for('main.index') }}#about" class="landing-nav-link">About</a>
+
+            {% if current_user.is_authenticated %}
+                <a href="{{ url_for('main.dashboard') }}" class="btn btn-primary btn-pill">Dashboard</a>
+            {% else %}
+                <a href="{{ url_for('auth.login') }}" class="btn btn-outline btn-pill">Login</a>
+                <a href="{{ url_for('auth.register') }}" class="btn btn-primary btn-pill">Get Started</a>
+            {% endif %}
+        </div>
+    </header>
+
+    {% with messages = get_flashed_messages(with_categories=true) %}
+        {% if messages %}
+            <div class="content-container" style="padding-bottom: 0;">
+                <div class="flash-alert-container">
+                    {% for category, message in messages %}
+                        <div class="alert-message alert-{{ category }}">
+                            <span>
+                                {% if category == 'success' %}
+                                    <i class="fa-solid fa-circle-check" style="margin-right: 0.5rem; color: #10b981;"></i>
+                                {% elif category in ['danger', 'error'] %}
+                                    <i class="fa-solid fa-circle-exclamation" style="margin-right: 0.5rem; color: #ef4444;"></i>
+                                {% elif category == 'warning' %}
+                                    <i class="fa-solid fa-triangle-exclamation" style="margin-right: 0.5rem; color: #f59e0b;"></i>
+                                {% else %}
+                                    <i class="fa-solid fa-circle-info" style="margin-right: 0.5rem; color: #3b82f6;"></i>
+                                {% endif %}
+                                {{ message }}
+                            </span>
+                            <i class="fa-solid fa-xmark" style="cursor: pointer; opacity: 0.7; transition: opacity 0.2s;" onmouseover="this.style.opacity='1'" onmouseout="this.style.opacity='0.7'" onclick="this.parentElement.remove();"></i>
+                        </div>
+                    {% endfor %}
+                </div>
+            </div>
+        {% endif %}
+    {% endwith %}
+
+    <main style="flex: 1;">
+        {% block content_standalone %}{% endblock %}
+    </main>
+
+    <footer class="app-footer">
+        <div style="display: flex; align-items: center; gap: 0.75rem;">
+            <div class="brand-logo-icon" style="width: 32px; height: 32px; font-size: 1rem;">
+                <i class="fa-solid fa-bolt"></i>
+            </div>
+            <div>
+                <strong style="color: white;">JobSnap</strong>
+                <div style="font-size: 0.78rem; color: #94a3b8;">Smarter resumes. Better opportunities.</div>
+            </div>
+        </div>
+        <div style="display: flex; gap: 2rem;">
+            <a href="#">About</a>
+            <a href="https://github.com/RajuAhammed01" target="_blank" rel="noopener noreferrer">GitHub</a>
+            <a href="#">License</a>
+        </div>
+        <div>
+            © 2026 JobSnap. All rights reserved.
+        </div>
+    </footer>
+{% endif %}
+
+<script>
+    function toggleTheme() {
+        var isDark = document.documentElement.getAttribute('data-theme') === 'dark';
+        if (isDark) {
+            document.documentElement.removeAttribute('data-theme');
+            localStorage.setItem('jobsnap_theme', 'light');
+            var icon = document.getElementById('themeIcon');
+            if (icon) icon.className = 'fa-solid fa-moon';
+        } else {
+            document.documentElement.setAttribute('data-theme', 'dark');
+            localStorage.setItem('jobsnap_theme', 'dark');
+            var icon = document.getElementById('themeIcon');
+            if (icon) icon.className = 'fa-solid fa-sun';
+        }
+    }
+
+    function toggleMobileSidebar() {
+        var sidebar = document.querySelector('.app-sidebar');
+        var overlay = document.getElementById('sidebarOverlay');
+        if (sidebar) {
+            sidebar.classList.toggle('mobile-open');
+        }
+        if (overlay) {
+            overlay.classList.toggle('active');
+        }
+    }
+
+    document.addEventListener('DOMContentLoaded', function() {
+        var isDark = document.documentElement.getAttribute('data-theme') === 'dark';
+        var icon = document.getElementById('themeIcon');
+        if (icon && isDark) {
+            icon.className = 'fa-solid fa-sun';
+        }
+    });
+</script>
+<script src="{{ url_for('static', filename='js/main.js') }}"></script>
+</body>
+</html>

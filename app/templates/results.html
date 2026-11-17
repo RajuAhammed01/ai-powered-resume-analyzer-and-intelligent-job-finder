@@ -1,0 +1,816 @@
+{% extends "base.html" %}
+
+{% block content %}
+<!-- Page Header -->
+<div style="margin-bottom: 1.5rem;">
+    <div style="display: flex; align-items: center; gap: 0.75rem; margin-bottom: 0.25rem;">
+        <div style="width: 44px; height: 44px; border-radius: 12px; background: #dbeafe; color: var(--primary); display: flex; align-items: center; justify-content: center; font-size: 1.25rem;">
+            <i class="fa-solid fa-briefcase"></i>
+        </div>
+        <div>
+            <h1 style="font-family: var(--font-heading); font-size: 1.85rem; font-weight: 800; color: var(--text-main); margin: 0;">
+                Live Job Recommendations
+            </h1>
+            <p style="color: var(--text-muted); font-size: 0.875rem; margin: 0.15rem 0 0.5rem 0;">
+                Active openings matched to your profile & preferences.
+            </p>
+            {% if candidate_profile %}
+            <div style="display: flex; align-items: center; gap: 0.45rem; flex-wrap: wrap;">
+                <span class="badge-pill" style="background: #eff6ff; color: #1d4ed8; border: 1px solid #bfdbfe; font-size: 0.78rem; font-weight: 700; padding: 0.2rem 0.55rem;" title="Domain: {{ candidate_profile.domain_name }}">
+                    <i class="fa-solid fa-user-tie"></i> {{ candidate_profile.domain_name }}
+                </span>
+                <span class="badge-pill" style="background: #f0fdf4; color: #166534; border: 1px solid #bbf7d0; font-size: 0.78rem; font-weight: 600; padding: 0.2rem 0.55rem;" title="Target Roles: {{ candidate_profile.search_queries|join(' • ') }}">
+                    <i class="fa-solid fa-crosshairs"></i> Target: {{ candidate_profile.search_queries[0] if candidate_profile.search_queries else 'Role' }}{% if candidate_profile.search_queries|length > 1 %} <span style="opacity: 0.75; font-size: 0.72rem;">(+{{ candidate_profile.search_queries|length - 1 }})</span>{% endif %}
+                </span>
+                {% if is_internship_seeking %}
+                <span class="badge-pill" style="background: #ecfdf5; color: #065f46; border: 1px solid #6ee7b7; font-size: 0.78rem; font-weight: 700; padding: 0.2rem 0.55rem;" title="Prioritizing relevant internships & entry-level roles">
+                    <i class="fa-solid fa-graduation-cap"></i> Internship Seeker
+                </span>
+                {% endif %}
+            </div>
+            {% endif %}
+        </div>
+    </div>
+</div>
+
+<!-- 4 Top Stat Cards -->
+<div class="stat-card-grid">
+    <div class="stat-card">
+        <div class="stat-icon-wrapper stat-icon-green">
+            <i class="fa-solid fa-bullseye"></i>
+        </div>
+        <div>
+            <div class="stat-val">{{ top_match_score }}%</div>
+            <div class="stat-label">Top Match Score</div>
+        </div>
+    </div>
+
+    <div class="stat-card">
+        <div class="stat-icon-wrapper stat-icon-blue">
+            <i class="fa-solid fa-satellite-dish"></i>
+        </div>
+        <div>
+            <div class="stat-val">{{ jobs|length }}</div>
+            <div class="stat-label">Real-Time Openings</div>
+        </div>
+    </div>
+
+    <div class="stat-card">
+        <div class="stat-icon-wrapper stat-icon-purple">
+            <i class="fa-solid fa-bookmark"></i>
+        </div>
+        <div>
+            <div class="stat-val">{{ saved_jobs_count }}</div>
+            <div class="stat-label">Saved Jobs</div>
+        </div>
+    </div>
+
+    <div class="stat-card">
+        <div class="stat-icon-wrapper stat-icon-orange">
+            <i class="fa-solid fa-sparkles"></i>
+        </div>
+        <div>
+            <div class="stat-val">{{ jobs|selectattr('combined_score', 'ge', 70)|list|length }}</div>
+            <div class="stat-label">High Matches (≥70%)</div>
+        </div>
+    </div>
+</div>
+
+<!-- Advanced Multi-Criteria Filter Center -->
+<div class="filter-card-panel">
+    <!-- Top Filter Row: Search & Dropdowns -->
+    <div style="display: flex; flex-wrap: wrap; gap: 0.75rem; align-items: center; justify-content: space-between; margin-bottom: 0.85rem;">
+        <div style="display: flex; gap: 0.6rem; flex-wrap: wrap; flex: 1; align-items: center;">
+            <!-- Category / Domain Filter -->
+            <select id="filter-domain" onchange="filterJobs()" class="filter-select-control" title="Filter by Career Domain">
+                <option value="all" {% if selected_domain == 'all' %}selected{% endif %}>All Domains</option>
+                <option value="backend" {% if selected_domain == 'backend' %}selected{% endif %}>Backend & APIs</option>
+                <option value="frontend" {% if selected_domain == 'frontend' %}selected{% endif %}>Frontend & Web</option>
+                <option value="fullstack" {% if selected_domain == 'fullstack' %}selected{% endif %}>Full-Stack</option>
+                <option value="data_ml" {% if selected_domain == 'data_ml' %}selected{% endif %}>Data & AI / ML</option>
+                <option value="devops" {% if selected_domain == 'devops' %}selected{% endif %}>DevOps & Cloud</option>
+            </select>
+
+            <!-- Seniority / Experience Filter -->
+            <select id="filter-seniority" onchange="filterJobs()" class="filter-select-control" title="Filter by Seniority Level">
+                <option value="all" {% if selected_seniority == 'all' %}selected{% endif %}>All Levels</option>
+                <option value="internship" {% if selected_seniority == 'internship' %}selected{% endif %}>Internships Only</option>
+                <option value="entry_level" {% if selected_seniority == 'entry_level' %}selected{% endif %}>Entry-Level / Junior</option>
+                <option value="experienced" {% if selected_seniority == 'experienced' %}selected{% endif %}>Experienced / Mid-Senior</option>
+            </select>
+
+            <!-- Match Score Threshold Filter -->
+            <select id="filter-score" onchange="filterJobs()" class="filter-select-control" title="Filter by Minimum Match Score">
+                <option value="all" {% if selected_min_score == 'all' %}selected{% endif %}>All Match Scores</option>
+                <option value="80" {% if selected_min_score == '80' %}selected{% endif %}>80%+ High Matches</option>
+                <option value="65" {% if selected_min_score == '65' %}selected{% endif %}>65%+ Good Matches</option>
+                <option value="50" {% if selected_min_score == '50' %}selected{% endif %}>50%+ Relevant Matches</option>
+            </select>
+
+            <!-- Location Filter -->
+            <select id="filter-location" onchange="filterJobs()" class="filter-select-control" title="Filter by Workplace Location">
+                <option value="all" {% if selected_location == 'all' %}selected{% endif %}>All Locations</option>
+                <option value="remote" {% if selected_location == 'remote' %}selected{% endif %}>Remote Only</option>
+                <option value="onsite" {% if selected_location == 'onsite' %}selected{% endif %}>On-site / Specific</option>
+            </select>
+
+            <!-- Job Type Filter -->
+            <select id="filter-type" onchange="filterJobs()" class="filter-select-control" title="Filter by Employment Type">
+                <option value="all" {% if selected_type == 'all' %}selected{% endif %}>All Job Types</option>
+                <option value="full-time" {% if selected_type == 'full-time' %}selected{% endif %}>Full-time</option>
+                <option value="contract" {% if selected_type == 'contract' %}selected{% endif %}>Contract</option>
+                <option value="internship" {% if selected_type == 'internship' %}selected{% endif %}>Internship</option>
+            </select>
+
+            <!-- Real-Time Source Filter -->
+            <select id="filter-source" onchange="filterJobs()" class="filter-select-control" style="font-weight: 600; color: #1A6DF7;" title="Filter by Live Provider">
+                <option value="all" {% if selected_source == 'all' %}selected{% endif %}>All Live Sources</option>
+                <option value="remotive" {% if selected_source == 'remotive' %}selected{% endif %}>Remotive Live</option>
+                <option value="arbeitnow" {% if selected_source == 'arbeitnow' %}selected{% endif %}>Arbeitnow Live</option>
+                <option value="remoteok" {% if selected_source == 'remoteok' %}selected{% endif %}>RemoteOK Live</option>
+                <option value="jobicy" {% if selected_source == 'jobicy' %}selected{% endif %}>Jobicy Live</option>
+            </select>
+
+            <!-- Reliability Verification Filter -->
+            <select id="filter-reliability" onchange="filterJobs()" class="filter-select-control" style="font-weight: 600;" title="Filter by Job Reliability">
+                <option value="all" {% if selected_reliability == 'all' %}selected{% endif %}>All Reliability</option>
+                <option value="verified" {% if selected_reliability == 'verified' %}selected{% endif %}>Verified Only</option>
+                <option value="unverified" {% if selected_reliability == 'unverified' %}selected{% endif %}>Unverified</option>
+                <option value="suspicious" {% if selected_reliability in ['suspicious', 'potentially_suspicious'] %}selected{% endif %}>Potentially Suspicious</option>
+            </select>
+
+            <!-- Sorting -->
+            <select id="sort-select" onchange="filterJobs()" class="filter-select-control" title="Sort Results">
+                <option value="score" {% if selected_sort == 'score' %}selected{% endif %}>Highest Match Score</option>
+                <option value="title" {% if selected_sort == 'title' %}selected{% endif %}>Job Title (A–Z)</option>
+                <option value="company" {% if selected_sort == 'company' %}selected{% endif %}>Company (A–Z)</option>
+            </select>
+        </div>
+
+        <!-- Real-Time Search Box -->
+        <div style="display: flex; align-items: center; gap: 0.5rem; flex: 1 1 auto; max-width: 300px;">
+            <div class="input-icon-group" style="width: 100%; max-width: 100%; margin: 0; position: relative;">
+                <i class="fa-solid fa-magnifying-glass field-icon" style="font-size: 0.82rem; color: #94A3B8;"></i>
+                <input type="text" id="search-input" oninput="filterJobs()" class="input-control" placeholder="Search title, company, skill..." value="{{ search_query or '' }}" style="padding: 0.45rem 2rem 0.45rem 2.2rem; font-size: 0.82rem; border-radius: 8px;">
+                <span id="search-clear-btn" onclick="clearSearchInput()" style="display: none; position: absolute; right: 0.65rem; top: 50%; transform: translateY(-50%); cursor: pointer; color: #94A3B8; font-size: 0.85rem;" title="Clear search">
+                    <i class="fa-solid fa-circle-xmark"></i>
+                </span>
+            </div>
+        </div>
+    </div>
+
+    <!-- Quick Skill Filter Tag Bar -->
+    {% if popular_skills %}
+    <div style="display: flex; align-items: center; gap: 0.45rem; flex-wrap: wrap; padding-top: 0.75rem; border-top: 1px dashed #E2E8F0; margin-bottom: 0.75rem;">
+        <span style="font-size: 0.74rem; font-weight: 700; color: #64748B; text-transform: uppercase; letter-spacing: 0.4px;">
+            <i class="fa-solid fa-bolt" style="color: #1A6DF7;"></i> Quick Skills:
+        </span>
+        {% for skill in popular_skills %}
+            <button type="button" class="filter-skill-btn" data-skill="{{ skill|lower }}" onclick="toggleSkillFilter('{{ skill|lower }}', this)">
+                {{ skill }}
+            </button>
+        {% endfor %}
+    </div>
+    {% endif %}
+
+    <!-- Live Counter & Active Filter Chips Bar -->
+    <div style="display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 0.65rem; padding-top: 0.6rem; border-top: 1px solid #F1F5F9;">
+        <div style="display: flex; align-items: center; gap: 0.65rem; flex-wrap: wrap;">
+            <div style="font-size: 0.82rem; color: #475569; font-weight: 500;">
+                Showing <strong id="visible-jobs-count" style="color: #0E1B2E; font-weight: 800;">{{ jobs|length }}</strong> of <span id="total-jobs-count">{{ jobs|length }}</span> active openings
+            </div>
+            <div id="active-filters-container" style="display: flex; gap: 0.35rem; flex-wrap: wrap;">
+                <!-- Dynamically populated active filter chips -->
+            </div>
+        </div>
+
+        <button type="button" id="reset-filters-btn" class="btn-reset-filters" onclick="resetAllFilters()" style="display: none;">
+            <i class="fa-solid fa-rotate-left"></i> Reset All Filters
+        </button>
+    </div>
+</div>
+
+<!-- Main 2-Column Split -->
+<div class="responsive-split-grid">
+    <!-- Left Job Recommendations Cards List -->
+    <div id="jobs-list-container" style="display: flex; flex-direction: column; gap: 1rem;">
+        {% for job in jobs %}
+        <div class="card-panel job-card job-card-unified {% if loop.first %}job-card-active{% endif %}" 
+             style="padding: 1.25rem; cursor: pointer;"
+             data-job-index="{{ loop.index0 }}"
+             onclick="selectJobPreview({{ loop.index0 }})"
+             data-location="{{ (job.get('job_city') or job.get('location') or 'remote')|lower }}"
+             data-type="{{ (job.get('job_employment_type') or 'full-time')|lower }}"
+             data-source="{{ (job.get('source') or 'web')|lower }}"
+             data-score="{{ job.get('combined_score', 0) }}"
+             data-title="{{ job.get('job_title', '')|lower }}"
+             data-company="{{ (job.get('employer_name') or job.get('company') or '')|lower }}"
+             data-skills="{{ (job.get('job_skills', []) + job.get('matched_skills', []))|join(' ')|lower }}"
+             data-seniority="{% if job.get('is_internship') %}internship{% elif job.get('is_entry_level') %}entry_level{% else %}experienced{% endif %}"
+             data-domain="{{ (job.get('domain_info', {}).get('domain') or 'general')|lower }}"
+             data-reliability="{{ (job.get('reliability_status') or 'unverified')|lower }}"
+             data-salary="{{ 'true' if job.get('salary') else 'false' }}">
+            <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 0.5rem;">
+                <div style="display: flex; gap: 0.85rem; align-items: flex-start; flex: 1;">
+                    <div class="mock-company-icon" style="background: {% if loop.index0 % 3 == 0 %}#2563eb{% elif loop.index0 % 3 == 1 %}#7c3aed{% else %}#059669{% endif %}; font-size: 1.1rem; width: 44px; height: 44px; flex-shrink: 0;">
+                        {{ (job.get('employer_name') or job.get('company') or 'J')[0]|upper }}
+                    </div>
+                    <div style="flex: 1;">
+                        <h3 class="job-title-clamped" style="font-family: var(--font-heading); font-size: 1.05rem; font-weight: 700; color: var(--text-main); margin-bottom: 0.2rem;">
+                            <a href="{{ url_for('jobs.job_detail', index=job.get('job_id', job.get('cache_id', loop.index0))) }}" onclick="event.preventDefault(); selectJobPreview({{ loop.index0 }});" style="text-decoration: none; color: inherit;">
+                                {{ job.get('job_title', 'Untitled Role') }}
+                            </a>
+                        </h3>
+                        <div style="font-size: 0.82rem; color: var(--text-muted); display: flex; align-items: center; gap: 0.5rem; flex-wrap: wrap;">
+                            <strong>{{ job.get('employer_name') or job.get('company') or 'Company' }}</strong> • 
+                            <span><i class="fa-solid fa-location-dot"></i> {{ job.get('job_city') or job.get('location') or 'Remote' }}</span> • 
+                            <span><i class="fa-solid fa-clock"></i> {{ job.get('job_employment_type', 'Full-time') }}</span>
+                            <span class="badge-pill" style="background: #ecfdf5; color: #047857; border: 1px solid #a7f3d0; font-size: 0.72rem; padding: 0.15rem 0.5rem;">
+                                <i class="fa-solid fa-bolt" style="color: #10b981;"></i> {{ job.get('source', 'Live') }}
+                            </span>
+                            {% if job.get('is_unrelated_domain') %}
+                            <span class="badge-pill" style="background: #fef2f2; color: #991b1b; border: 1px solid #fecaca; font-size: 0.72rem; padding: 0.15rem 0.5rem;" title="{{ job.get('domain_info', {}).get('domain_explanation', '') }}">
+                                <i class="fa-solid fa-triangle-exclamation"></i> Unrelated Category
+                            </span>
+                            {% elif job.get('domain_info') and job.get('domain_info', {}).get('is_tech') %}
+                            <span class="badge-pill" style="background: #eff6ff; color: #1e40af; border: 1px solid #dbeafe; font-size: 0.72rem; padding: 0.15rem 0.5rem;">
+                                <i class="fa-solid fa-tag"></i> {{ job.domain_info.domain_name }}
+                            </span>
+                            {% endif %}
+                            {% if job.get('is_internship') %}
+                            <span class="badge-pill" style="background: #f0fdf4; color: #166534; border: 1px solid #bbf7d0; font-size: 0.72rem; padding: 0.15rem 0.55rem; font-weight: 700;">
+                                <i class="fa-solid fa-graduation-cap"></i> Internship
+                            </span>
+                            {% elif job.get('is_entry_level') %}
+                            <span class="badge-pill" style="background: #fefce8; color: #854d0e; border: 1px solid #fef08a; font-size: 0.72rem; padding: 0.15rem 0.55rem; font-weight: 600;">
+                                <i class="fa-solid fa-seedling"></i> Entry Level
+                            </span>
+                            {% endif %}
+                            {% if job.reliability or job.reliability_label %}
+                            {% set r_label = job.reliability.label if job.reliability else job.reliability_label %}
+                            {% set r_bg = job.reliability.badge_bg if job.reliability else job.reliability_bg %}
+                            {% set r_color = job.reliability.badge_color if job.reliability else job.reliability_color %}
+                            {% set r_border = job.reliability.badge_border if job.reliability else job.reliability_border %}
+                            {% set r_icon = job.reliability.icon if job.reliability else job.reliability_icon %}
+                            {% set r_sum = job.reliability.summary if job.reliability else (job.reliability_summary or '') %}
+                            <span class="badge-pill" style="background: {{ r_bg or '#f8fafc' }}; color: {{ r_color or '#475569' }}; border: 1px solid {{ r_border or '#e2e8f0' }}; font-size: 0.72rem; padding: 0.15rem 0.55rem; font-weight: 700;" title="{{ r_sum }}">
+                                <i class="{{ r_icon or 'fa-solid fa-shield' }}"></i> {{ r_label }}
+                            </span>
+                            {% endif %}
+                        </div>
+                    </div>
+                </div>
+
+                <div style="text-align: right; margin-left: 0.5rem; flex-shrink: 0;">
+                    <span class="badge-pill {% if job.get('combined_score', 0) >= 70 %}badge-match-high{% elif job.get('combined_score', 0) >= 45 %}badge-match-med{% else %}badge-match-low{% endif %}">
+                        {{ job.get('combined_score', 0) }}% Match
+                    </span>
+                    <div style="font-size: 0.72rem; color: var(--text-muted); margin-top: 0.2rem;">
+                        Coverage {{ job.score_breakdown.skill_coverage_pct if job.score_breakdown else job.match_score }}% • Fit {{ job.score_breakdown.responsibilities_pct if (job.score_breakdown and job.score_breakdown.responsibilities_pct is not none) else (job.cosine_score or job.combined_score) }}%
+                    </div>
+                </div>
+            </div>
+
+            <!-- 3-Tier Job Skills Breakdown: Matched (1.0), Partially Matched (0.5), Missing (0.0) -->
+            <div style="margin-top: 0.75rem; margin-bottom: 0.85rem;">
+                <div style="display: flex; flex-wrap: wrap; gap: 0.35rem; align-items: center;">
+                    <!-- Matched Skills (Green) -->
+                    {% for skill in job.get('matched_skills', [])[:3] %}
+                        <span class="badge-pill badge-skill-extracted" title="Directly verified from your resume">
+                            <i class="fa-solid fa-check" style="font-size: 0.7rem;"></i> {{ skill }}
+                        </span>
+                    {% endfor %}
+
+                    <!-- Partially Matched Skills (Amber) -->
+                    {% for p in job.get('partial_skills', [])[:2] %}
+                        <span class="badge-pill" style="background: #fef3c7; color: #92400e; border: 1px solid #fde68a; font-size: 0.72rem; padding: 0.2rem 0.5rem;" title="{{ p.reason }}">
+                            <i class="fa-solid fa-arrows-split-up-and-left" style="font-size: 0.68rem;"></i> ≈ {{ p.skill }} (via {{ p.matched_via }})
+                        </span>
+                    {% endfor %}
+
+                    <!-- Missing Skills (Red) -->
+                    {% for skill in job.get('missing_skills', [])[:3] %}
+                        <span class="badge-pill badge-skill-missing" title="Required by this live role, not found in resume">
+                            <i class="fa-solid fa-xmark" style="font-size: 0.68rem;"></i> {{ skill }}
+                        </span>
+                    {% endfor %}
+                    
+                    {% set total_extra = (job.get('matched_skills', [])|length - 3) + (job.get('partial_skills', [])|length - 2) + (job.get('missing_skills', [])|length - 3) %}
+                    {% if total_extra > 0 %}
+                        <span style="font-size: 0.72rem; color: var(--text-light); font-weight: 600;">+{{ total_extra }} more</span>
+                    {% endif %}
+                </div>
+            </div>
+
+            <div style="display: flex; justify-content: space-between; align-items: center; border-top: 1px solid var(--border-color); padding-top: 0.75rem;">
+                <a href="{{ url_for('jobs.job_detail', index=job.get('job_id', job.get('cache_id', loop.index0))) }}" class="btn btn-outline btn-sm" onclick="event.stopPropagation();">
+                    View Details
+                </a>
+                
+                <div style="display: flex; gap: 0.5rem;">
+                    <form method="POST" action="{{ url_for('jobs.save_job') }}" style="display: inline;" onclick="event.stopPropagation();">
+                        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                        <input type="hidden" name="job_id" value="{{ job.get('job_id', '') }}">
+                        <input type="hidden" name="job_title" value="{{ job.get('job_title', '') }}">
+                        <input type="hidden" name="company" value="{{ job.get('employer_name') or job.get('company', '') }}">
+                        <input type="hidden" name="location" value="{{ job.get('job_city') or job.get('location', 'Remote') }}">
+                        <input type="hidden" name="apply_link" value="{{ job.get('job_apply_link', '#') }}">
+                        <input type="hidden" name="match_score" value="{{ job.get('combined_score', 80) }}">
+                        <button type="submit" class="btn btn-secondary btn-sm js-save-job-btn" 
+                                data-job-id="{{ job.get('job_id', '') }}"
+                                data-job-title="{{ job.get('job_title', '') }}"
+                                data-job-company="{{ job.get('employer_name') or job.get('company', '') }}"
+                                data-job-location="{{ job.get('job_city') or job.get('location', 'Remote') }}"
+                                data-job-url="{{ job.get('job_apply_link', '#') }}"
+                                title="Save Job"><i class="fa-regular fa-bookmark"></i></button>
+                    </form>
+
+                    <!-- Direct Apply Now Link -->
+                    <a href="{{ url_for('jobs.apply_redirect', index=job.get('job_id', job.get('cache_id', loop.index0))) }}?direct_url={{ job.job_apply_link|urlencode }}" target="_blank" rel="noopener noreferrer" class="btn btn-primary btn-sm btn-pill" onclick="event.stopPropagation();" title="Apply on {{ job.get('source', 'Original Portal') }}">
+                        Apply Now <i class="fa-solid fa-arrow-up-right-from-square" style="font-size: 0.72rem; margin-left: 0.2rem;"></i>
+                    </a>
+                </div>
+            </div>
+        </div>
+        {% else %}
+        <div class="card-panel" style="text-align: center; padding: 4rem 2rem;">
+            <i class="fa-solid fa-magnifying-glass" style="font-size: 3rem; color: var(--text-light); margin-bottom: 1rem;"></i>
+            <h3>No live jobs found</h3>
+            <p style="color: var(--text-muted);">Try adjusting your role or location keywords.</p>
+        </div>
+        {% endfor %}
+
+        <div id="no-filter-jobs" class="card-panel" style="display: none; text-align: center; padding: 3rem 1.5rem;">
+            <i class="fa-solid fa-filter-circle-xmark" style="font-size: 2.5rem; color: var(--text-light); margin-bottom: 0.75rem;"></i>
+            <h4 style="font-size: 1.1rem; font-weight: 700; color: var(--text-main);">No jobs match your filter criteria</h4>
+            <p style="font-size: 0.85rem; color: var(--text-muted);">Try clearing your search query or changing the filter options.</p>
+        </div>
+    </div>
+
+    <!-- Right Selected Job Preview Sidebar -->
+    {% if jobs %}
+    <div class="card-panel sticky-sidebar-panel" id="sidebar-preview-container">
+        {% for active_job in jobs %}
+        <div class="job-preview-pane" id="preview-pane-{{ loop.index0 }}" style="{% if not loop.first %}display: none;{% endif %}">
+            <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 1rem;">
+                <div style="display: flex; gap: 0.85rem; align-items: center;">
+                    <div class="mock-company-icon" style="background: {% if loop.index0 % 3 == 0 %}#2563eb{% elif loop.index0 % 3 == 1 %}#7c3aed{% else %}#059669{% endif %}; width: 48px; height: 48px; font-size: 1.25rem;">
+                        {{ (active_job.get('employer_name') or active_job.get('company') or 'J')[0]|upper }}
+                    </div>
+                    <div>
+                        <h3 style="font-family: var(--font-heading); font-size: 1.15rem; font-weight: 700; margin-bottom: 0.15rem; color: var(--text-main);">
+                            {{ active_job.get('job_title', 'Top Matched Role') }}
+                        </h3>
+                        <div style="font-size: 0.82rem; color: var(--text-muted);">
+                            {{ active_job.get('employer_name') or active_job.get('company') or 'Company' }} • 
+                            {{ active_job.get('job_city') or active_job.get('location') or 'Remote' }} • 
+                            {{ active_job.get('job_employment_type', 'Full-time') }}
+                        </div>
+                    </div>
+                </div>
+                <span class="badge-pill {% if active_job.get('combined_score', 0) >= 70 %}badge-match-high{% elif active_job.get('combined_score', 0) >= 45 %}badge-match-med{% else %}badge-match-low{% endif %}">
+                    {{ active_job.get('combined_score', 85) }}% Match
+                </span>
+            </div>
+
+            <div style="display: flex; gap: 0.75rem; margin-bottom: 1.25rem;">
+                <!-- Direct Apply Now in Sidebar -->
+                <a href="{{ url_for('jobs.apply_redirect', index=active_job.get('job_id', active_job.get('cache_id', loop.index0))) }}?direct_url={{ active_job.job_apply_link|urlencode }}" target="_blank" rel="noopener noreferrer" class="btn btn-primary btn-sm" style="flex: 1;">
+                    <i class="fa-solid fa-arrow-up-right-from-square"></i> Apply Now ({{ active_job.get('source', 'Original Site') }})
+                </a>
+                <form method="POST" action="{{ url_for('jobs.save_job') }}">
+                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                    <input type="hidden" name="job_id" value="{{ active_job.get('job_id', '') }}">
+                    <input type="hidden" name="job_title" value="{{ active_job.get('job_title', '') }}">
+                    <input type="hidden" name="company" value="{{ active_job.get('employer_name') or active_job.get('company', '') }}">
+                    <input type="hidden" name="location" value="{{ active_job.get('job_city') or active_job.get('location', 'Remote') }}">
+                    <input type="hidden" name="apply_link" value="{{ active_job.get('job_apply_link', '#') }}">
+                    <input type="hidden" name="match_score" value="{{ active_job.get('combined_score', 80) }}">
+                    <button type="submit" class="btn btn-outline btn-sm js-save-job-btn"
+                            data-job-id="{{ active_job.get('job_id', '') }}"
+                            data-job-title="{{ active_job.get('job_title', '') }}"
+                            data-job-company="{{ active_job.get('employer_name') or active_job.get('company', '') }}"
+                            data-job-location="{{ active_job.get('job_city') or active_job.get('location', 'Remote') }}"
+                            data-job-url="{{ active_job.get('job_apply_link', '#') }}">
+                        <i class="fa-regular fa-bookmark"></i> Save Job
+                    </button>
+                </form>
+            </div>
+
+            <!-- Quick Details -->
+            <div style="font-size: 0.85rem; color: var(--text-muted); display: grid; grid-template-columns: 1fr 1fr; gap: 0.75rem; background: var(--bg-subtle); padding: 0.85rem; border-radius: var(--radius-md); margin-bottom: 1.25rem;">
+                <div><strong style="color: var(--text-main);">Type:</strong> {{ active_job.get('job_employment_type', 'Full-time') }}</div>
+                <div><strong style="color: var(--text-main);">Location:</strong> {{ active_job.get('job_city') or active_job.get('location') or 'Remote' }}</div>
+                <div><strong style="color: var(--text-main);">Source:</strong> {{ active_job.get('source', 'Live Web') }}</div>
+                <div><strong style="color: var(--text-main);">Total Skills:</strong> {{ (active_job.get('job_skills', []))|length }}</div>
+            </div>
+
+            <!-- Job Reliability & Safety Verification Card -->
+            {% if active_job.reliability or active_job.reliability_status %}
+            {% set ar = active_job.reliability if active_job.reliability else active_job %}
+            <div style="background: {{ ar.badge_bg or ar.reliability_bg or '#f8fafc' }}; border: 1px solid {{ ar.badge_border or ar.reliability_border or '#e2e8f0' }}; border-radius: var(--radius-sm); padding: 0.85rem; margin-bottom: 1.25rem;">
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.45rem;">
+                    <span style="font-size: 0.82rem; font-weight: 800; color: {{ ar.badge_color or ar.reliability_color or '#1e293b' }}; display: flex; align-items: center; gap: 0.4rem;">
+                        <i class="{{ ar.icon or ar.reliability_icon or 'fa-solid fa-shield' }}"></i> Reliability: {{ ar.label or ar.reliability_label or ar.status or ar.reliability_status }}
+                    </span>
+                    <span style="font-size: 0.72rem; font-weight: 800; color: {{ ar.badge_color or ar.reliability_color or '#1e293b' }}; background: white; padding: 0.15rem 0.5rem; border-radius: 9999px; border: 1px solid {{ ar.badge_border or ar.reliability_border or '#cbd5e1' }};">
+                        Trust Score: {{ ar.score if ar.score is defined else (ar.reliability_score or 75) }}/100
+                    </span>
+                </div>
+                <div style="font-size: 0.76rem; color: var(--text-main); line-height: 1.4; margin-bottom: 0.45rem;">
+                    {{ ar.summary or ar.reliability_summary or 'Listing verified through automated credibility checks.' }}
+                </div>
+                {% if ar.reasons or ar.reliability_reasons %}
+                <div style="font-size: 0.72rem; color: var(--text-muted); line-height: 1.4;">
+                    <strong style="color: var(--text-main);">Evidence & Signals:</strong>
+                    <ul style="margin: 0.2rem 0 0 0; padding-left: 1.15rem;">
+                        {% for r in (ar.reasons or ar.reliability_reasons)[:3] %}
+                        <li>{{ r }}</li>
+                        {% endfor %}
+                    </ul>
+                </div>
+                {% endif %}
+                {% if ar.critical_flags %}
+                <div style="margin-top: 0.5rem; padding: 0.35rem 0.55rem; background: #fef2f2; border: 1px solid #fecaca; border-radius: 6px; font-size: 0.72rem; color: #991b1b; font-weight: 700;">
+                    <i class="fa-solid fa-triangle-exclamation"></i> Alert: High-risk pattern detected. Legitimate employers never ask for application or registration fees via bKash/Nagad.
+                </div>
+                {% endif %}
+            </div>
+            {% endif %}
+
+            <!-- Transparent Match Explanation Card -->
+            {% if active_job.score_breakdown %}
+            <div style="background: #f8fafc; border: 1px solid #e2e8f0; border-radius: var(--radius-sm); padding: 0.85rem; margin-bottom: 1.25rem;">
+                <div style="font-size: 0.82rem; font-weight: 700; color: var(--text-main); margin-bottom: 0.4rem; display: flex; align-items: center; justify-content: space-between;">
+                    <span><i class="fa-solid fa-calculator" style="color: var(--primary);"></i> Why is this match {{ active_job.combined_score }}%?</span>
+                    <span style="color: var(--primary); font-weight: 700;">{{ active_job.combined_score }}% Total</span>
+                </div>
+                <div style="display: grid; grid-template-columns: repeat(5, 1fr); gap: 0.35rem; margin-bottom: 0.65rem;">
+                    <div style="background: white; border: 1px solid #e2e8f0; border-radius: var(--radius-sm); padding: 0.4rem 0.2rem; text-align: center;">
+                        <div style="font-size: 0.65rem; color: var(--text-muted);">Skill (35%)</div>
+                        <div style="font-size: 0.88rem; font-weight: 800; color: #047857;">{{ active_job.score_breakdown.skill_coverage_pct }}%</div>
+                        <div style="font-size: 0.65rem; color: var(--text-light);">{{ active_job.score_breakdown.skill_coverage_pts }} pts</div>
+                    </div>
+                    <div style="background: white; border: 1px solid #e2e8f0; border-radius: var(--radius-sm); padding: 0.4rem 0.2rem; text-align: center;">
+                        <div style="font-size: 0.65rem; color: var(--text-muted);">Tasks (10%)</div>
+                        <div style="font-size: 0.88rem; font-weight: 800; color: #2563eb;">{{ active_job.score_breakdown.responsibilities_pct or active_job.score_breakdown.semantic_score_pct or 70 }}%</div>
+                        <div style="font-size: 0.65rem; color: var(--text-light);">{{ active_job.score_breakdown.responsibilities_pts or active_job.score_breakdown.semantic_pts or 7 }} pts</div>
+                    </div>
+                    <div style="background: white; border: 1px solid #e2e8f0; border-radius: var(--radius-sm); padding: 0.4rem 0.2rem; text-align: center;">
+                        <div style="font-size: 0.65rem; color: var(--text-muted);">Career (10%)</div>
+                        <div style="font-size: 0.88rem; font-weight: 800; color: #7c3aed;">{{ active_job.score_breakdown.title_score_pct }}%</div>
+                        <div style="font-size: 0.65rem; color: var(--text-light);">{{ active_job.score_breakdown.title_pts }} pts</div>
+                    </div>
+                    <div style="background: white; border: 1px solid #e2e8f0; border-radius: var(--radius-sm); padding: 0.4rem 0.2rem; text-align: center;">
+                        <div style="font-size: 0.65rem; color: var(--text-muted);">Exp (15%)</div>
+                        <div style="font-size: 0.88rem; font-weight: 800; color: #ea580c;">{{ active_job.score_breakdown.experience_score_pct }}%</div>
+                        <div style="font-size: 0.65rem; color: var(--text-light);">{{ active_job.score_breakdown.experience_pts }} pts</div>
+                    </div>
+                    <div style="background: white; border: 1px solid #e2e8f0; border-radius: var(--radius-sm); padding: 0.4rem 0.2rem; text-align: center;">
+                        <div style="font-size: 0.65rem; color: var(--text-muted);">Quals (15%)</div>
+                        <div style="font-size: 0.88rem; font-weight: 800; color: #0891b2;">{{ active_job.score_breakdown.qualifications_pct or active_job.score_breakdown.education_score_pct or 75 }}%</div>
+                        <div style="font-size: 0.65rem; color: var(--text-light);">{{ active_job.score_breakdown.qualifications_pts or active_job.score_breakdown.education_pts or 11 }} pts</div>
+                    </div>
+                </div>
+                <div style="font-size: 0.74rem; color: var(--text-muted); line-height: 1.35;">
+                    {{ active_job.score_explanation }}
+                </div>
+            </div>
+            {% endif %}
+
+            <!-- 3-Tier Skills Breakdown -->
+            <div style="margin-bottom: 1.25rem;">
+                <!-- Matched Skills -->
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.35rem;">
+                    <span style="font-weight: 700; font-size: 0.8rem; color: var(--text-main);">
+                        <i class="fa-solid fa-circle-check" style="color: #10b981;"></i> Matched Skills ({{ active_job.get('matched_skills', [])|length }})
+                    </span>
+                    <span style="font-size: 0.7rem; color: #047857; font-weight: 600;">100% weight</span>
+                </div>
+                <div style="display: flex; flex-wrap: wrap; gap: 0.3rem; margin-bottom: 0.75rem;">
+                    {% for s in active_job.get('matched_skills', []) %}
+                        <span class="badge-pill badge-skill-extracted" style="font-size: 0.75rem;">{{ s }}</span>
+                    {% else %}
+                        <span style="font-size: 0.75rem; color: var(--text-muted);">No exact skill overlap</span>
+                    {% endfor %}
+                </div>
+
+                <!-- Partially Matched Skills -->
+                {% if active_job.get('partial_skills') %}
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.35rem;">
+                    <span style="font-weight: 700; font-size: 0.8rem; color: var(--text-main);">
+                        <i class="fa-solid fa-arrows-split-up-and-left" style="color: #f59e0b;"></i> Partially Matched ({{ active_job.get('partial_skills', [])|length }})
+                    </span>
+                    <span style="font-size: 0.7rem; color: #b45309; font-weight: 600;">50% weight</span>
+                </div>
+                <div style="display: flex; flex-wrap: wrap; gap: 0.3rem; margin-bottom: 0.75rem;">
+                    {% for p in active_job.get('partial_skills', []) %}
+                        <span class="badge-pill" style="background: #fef3c7; color: #92400e; border: 1px solid #fde68a; font-size: 0.72rem; padding: 0.2rem 0.5rem;" title="{{ p.reason }}">
+                            ≈ {{ p.skill }} <span style="font-size: 0.65rem; color: #b45309;">(via {{ p.matched_via }})</span>
+                        </span>
+                    {% endfor %}
+                </div>
+                {% endif %}
+
+                <!-- Missing Skills -->
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.35rem;">
+                    <span style="font-weight: 700; font-size: 0.8rem; color: var(--text-main);">
+                        <i class="fa-solid fa-circle-xmark" style="color: #ef4444;"></i> Missing Skills ({{ active_job.get('missing_skills', [])|length }})
+                    </span>
+                    <span style="font-size: 0.7rem; color: #b91c1c; font-weight: 600;">0% weight</span>
+                </div>
+                <div style="display: flex; flex-wrap: wrap; gap: 0.3rem;">
+                    {% for s in active_job.get('missing_skills', []) %}
+                        <span class="badge-pill badge-skill-missing" style="font-size: 0.75rem;">{{ s }}</span>
+                    {% else %}
+                        <span class="badge-pill badge-match-high" style="font-size: 0.75rem;">All required skills present!</span>
+                    {% endfor %}
+                </div>
+            </div>
+
+            <!-- Role Description Overview Preview -->
+            {% if active_job.get('job_description') %}
+            <div style="margin-bottom: 1.25rem;">
+                <div style="font-weight: 700; font-size: 0.8rem; color: var(--text-main); margin-bottom: 0.35rem; display: flex; align-items: center; justify-content: space-between;">
+                    <span><i class="fa-solid fa-file-lines" style="color: var(--primary); margin-right: 0.3rem;"></i> Role Overview & Summary</span>
+                    <a href="{{ url_for('jobs.job_detail', index=active_job.get('job_id', active_job.get('cache_id', loop.index0))) }}" style="font-size: 0.72rem; color: var(--primary); text-decoration: none; font-weight: 600;">
+                        Full View <i class="fa-solid fa-arrow-right" style="font-size: 0.65rem;"></i>
+                    </a>
+                </div>
+                <div class="job-description-preview" style="font-size: 0.82rem; color: var(--text-main); line-height: 1.6; max-height: 190px; overflow-y: auto; padding: 0.75rem 0.85rem; background: var(--bg-subtle); border-radius: var(--radius-sm); border: 1px solid var(--border-color); overflow-wrap: anywhere; word-break: normal;">
+                    {{ active_job.get('job_description') | format_job_description | safe }}
+                </div>
+            </div>
+            {% endif %}
+
+            <div style="background: #eff6ff; border: 1px solid #bfdbfe; border-radius: var(--radius-sm); padding: 0.85rem; margin-bottom: 1rem;">
+                <div style="font-size: 0.8rem; font-weight: 700; color: #1e40af; margin-bottom: 0.25rem;">
+                    <i class="fa-solid fa-graduation-cap"></i> Skill Gap & Learning Available
+                </div>
+                <p style="font-size: 0.75rem; color: #1e3a8a; margin: 0 0 0.5rem 0; line-height: 1.4;">
+                    Click below to see the full description, responsibilities, and recommended learning resources.
+                </p>
+                <a href="{{ url_for('jobs.job_detail', index=active_job.get('job_id', active_job.get('cache_id', loop.index0))) }}" class="btn btn-outline btn-sm" style="font-size: 0.78rem; width: 100%;">
+                    Full Breakdown & Learning <i class="fa-solid fa-arrow-right"></i>
+                </a>
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+    {% endif %}
+</div>
+
+<script>
+let activeSkillFilters = new Set();
+
+function selectJobPreview(index) {
+    const panes = document.querySelectorAll('.job-preview-pane');
+    panes.forEach(p => p.style.display = 'none');
+
+    const targetPane = document.getElementById('preview-pane-' + index);
+    if (targetPane) {
+        targetPane.style.display = 'block';
+    }
+
+    const cards = document.querySelectorAll('.job-card');
+    cards.forEach(c => c.classList.remove('job-card-active'));
+    const targetCard = document.querySelector(`.job-card[data-job-index="${index}"]`);
+    if (targetCard) {
+        targetCard.classList.add('job-card-active');
+    }
+
+    // On mobile / small screens, scroll preview into view smoothly
+    if (window.innerWidth <= 992) {
+        const sidebar = document.getElementById('sidebar-preview-container');
+        if (sidebar) {
+            sidebar.scrollIntoView({ behavior: 'smooth' });
+        }
+    }
+}
+
+function toggleSkillFilter(skill, btn) {
+    if (activeSkillFilters.has(skill)) {
+        activeSkillFilters.delete(skill);
+        btn.classList.remove('active');
+    } else {
+        activeSkillFilters.add(skill);
+        btn.classList.add('active');
+    }
+    filterJobs();
+}
+
+function clearSearchInput() {
+    const input = document.getElementById('search-input');
+    if (input) {
+        input.value = '';
+        document.getElementById('search-clear-btn').style.display = 'none';
+        filterJobs();
+    }
+}
+
+function resetAllFilters() {
+    const selects = ['filter-domain', 'filter-seniority', 'filter-score', 'filter-location', 'filter-type', 'filter-source', 'filter-reliability'];
+    selects.forEach(id => {
+        const el = document.getElementById(id);
+        if (el) el.value = 'all';
+    });
+
+    const sortEl = document.getElementById('sort-select');
+    if (sortEl) sortEl.value = 'score';
+
+    const searchInput = document.getElementById('search-input');
+    if (searchInput) searchInput.value = '';
+    const clearBtn = document.getElementById('search-clear-btn');
+    if (clearBtn) clearBtn.style.display = 'none';
+
+    activeSkillFilters.clear();
+    document.querySelectorAll('.filter-skill-btn').forEach(btn => btn.classList.remove('active'));
+
+    filterJobs();
+}
+
+function updateActiveChips() {
+    const container = document.getElementById('active-filters-container');
+    const resetBtn = document.getElementById('reset-filters-btn');
+    if (!container) return;
+    container.innerHTML = '';
+
+    let hasActive = false;
+
+    // Check search
+    const searchVal = document.getElementById('search-input').value.trim();
+    if (searchVal) {
+        hasActive = true;
+        const chip = document.createElement('span');
+        chip.className = 'filter-active-pill';
+        chip.innerHTML = `Search: "${searchVal}" <i class="fa-solid fa-xmark pill-remove" onclick="clearSearchInput()"></i>`;
+        container.appendChild(chip);
+    }
+
+    // Check dropdowns
+    const dropdownLabels = {
+        'filter-domain': { label: 'Domain', all: 'all' },
+        'filter-seniority': { label: 'Level', all: 'all' },
+        'filter-score': { label: 'Min Score', all: 'all', suffix: '%+' },
+        'filter-location': { label: 'Location', all: 'all' },
+        'filter-type': { label: 'Type', all: 'all' },
+        'filter-source': { label: 'Source', all: 'all' },
+        'filter-reliability': { label: 'Reliability', all: 'all' }
+    };
+
+    for (const [id, meta] of Object.entries(dropdownLabels)) {
+        const el = document.getElementById(id);
+        if (el && el.value !== meta.all) {
+            hasActive = true;
+            const text = el.options[el.selectedIndex].text;
+            const chip = document.createElement('span');
+            chip.className = 'filter-active-pill';
+            chip.innerHTML = `${text} <i class="fa-solid fa-xmark pill-remove" onclick="document.getElementById('${id}').value='all'; filterJobs();"></i>`;
+            container.appendChild(chip);
+        }
+    }
+
+    // Check skill pills
+    activeSkillFilters.forEach(skill => {
+        hasActive = true;
+        const chip = document.createElement('span');
+        chip.className = 'filter-active-pill';
+        chip.innerHTML = `Skill: ${skill} <i class="fa-solid fa-xmark pill-remove" onclick="removeSkillFilter('${skill}')"></i>`;
+        container.appendChild(chip);
+    });
+
+    if (resetBtn) {
+        resetBtn.style.display = hasActive ? 'inline-flex' : 'none';
+    }
+}
+
+function removeSkillFilter(skill) {
+    activeSkillFilters.delete(skill);
+    const btn = document.querySelector(`.filter-skill-btn[data-skill="${skill}"]`);
+    if (btn) btn.classList.remove('active');
+    filterJobs();
+}
+
+function filterJobs() {
+    const domainFilter = document.getElementById('filter-domain') ? document.getElementById('filter-domain').value.toLowerCase() : 'all';
+    const seniorityFilter = document.getElementById('filter-seniority') ? document.getElementById('filter-seniority').value.toLowerCase() : 'all';
+    const scoreFilter = document.getElementById('filter-score') ? document.getElementById('filter-score').value : 'all';
+    const locFilter = document.getElementById('filter-location') ? document.getElementById('filter-location').value.toLowerCase() : 'all';
+    const typeFilter = document.getElementById('filter-type') ? document.getElementById('filter-type').value.toLowerCase() : 'all';
+    const sourceFilter = document.getElementById('filter-source') ? document.getElementById('filter-source').value.toLowerCase() : 'all';
+    const relFilter = document.getElementById('filter-reliability') ? document.getElementById('filter-reliability').value.toLowerCase() : 'all';
+    const searchVal = document.getElementById('search-input') ? document.getElementById('search-input').value.toLowerCase().trim() : '';
+    const sortVal = document.getElementById('sort-select') ? document.getElementById('sort-select').value : 'score';
+
+    // Show/hide clear search icon
+    const clearBtn = document.getElementById('search-clear-btn');
+    if (clearBtn) {
+        clearBtn.style.display = searchVal ? 'block' : 'none';
+    }
+
+    const container = document.getElementById('jobs-list-container');
+    if (!container) return;
+
+    const cards = Array.from(container.querySelectorAll('.job-card'));
+    let visibleCount = 0;
+
+    cards.forEach(card => {
+        const loc = card.dataset.location || '';
+        const type = card.dataset.type || '';
+        const src = card.dataset.source || '';
+        const title = card.dataset.title || '';
+        const company = card.dataset.company || '';
+        const skills = card.dataset.skills || '';
+        const seniority = card.dataset.seniority || '';
+        const domain = card.dataset.domain || '';
+        const rel = (card.dataset.reliability || '').toLowerCase();
+        const score = parseInt(card.dataset.score || 0, 10);
+
+        // 1. Domain match
+        let matchDomain = (domainFilter === 'all') || (domain === domainFilter) || (domainFilter === 'backend' && domain.includes('backend')) || (domainFilter === 'frontend' && domain.includes('frontend')) || (domainFilter === 'data_ml' && (domain.includes('data') || domain.includes('ml')));
+
+        // 2. Seniority match
+        let matchSeniority = (seniorityFilter === 'all') || (seniority === seniorityFilter);
+
+        // 3. Match score threshold
+        let matchScore = true;
+        if (scoreFilter !== 'all') {
+            const minScore = parseInt(scoreFilter, 10);
+            matchScore = score >= minScore;
+        }
+
+        // 4. Location match
+        let matchLoc = (locFilter === 'all') || (locFilter === 'remote' && loc.includes('remote')) || (locFilter === 'onsite' && !loc.includes('remote'));
+
+        // 5. Job Type match
+        let matchType = (typeFilter === 'all') || type.includes(typeFilter);
+
+        // 6. Source match
+        let matchSource = (sourceFilter === 'all') || src.includes(sourceFilter);
+
+        // 7. Reliability match
+        let matchReliability = (relFilter === 'all') ||
+            (relFilter === 'verified' && rel === 'verified') ||
+            (relFilter === 'unverified' && rel === 'unverified') ||
+            ((relFilter === 'suspicious' || relFilter === 'potentially_suspicious') && (rel === 'potentially suspicious' || rel.includes('suspicious')));
+
+        // 8. Text Search match
+        let matchSearch = !searchVal || title.includes(searchVal) || company.includes(searchVal) || skills.includes(searchVal);
+
+        // 9. Active Skill Tags match (all selected skills must be present)
+        let matchSkills = true;
+        if (activeSkillFilters.size > 0) {
+            for (const skill of activeSkillFilters) {
+                if (!skills.includes(skill) && !title.includes(skill)) {
+                    matchSkills = false;
+                    break;
+                }
+            }
+        }
+
+        if (matchDomain && matchSeniority && matchScore && matchLoc && matchType && matchSource && matchReliability && matchSearch && matchSkills) {
+            card.style.display = 'block';
+            visibleCount++;
+        } else {
+            card.style.display = 'none';
+        }
+    });
+
+    // Sorting
+    if (sortVal === 'score') {
+        cards.sort((a, b) => parseInt(b.dataset.score || 0, 10) - parseInt(a.dataset.score || 0, 10));
+    } else if (sortVal === 'title') {
+        cards.sort((a, b) => (a.dataset.title || '').localeCompare(b.dataset.title || ''));
+    } else if (sortVal === 'company') {
+        cards.sort((a, b) => (a.dataset.company || '').localeCompare(b.dataset.company || ''));
+    }
+    cards.forEach(card => container.appendChild(card));
+
+    // Update Live Count
+    const visibleCountEl = document.getElementById('visible-jobs-count');
+    if (visibleCountEl) visibleCountEl.textContent = visibleCount;
+
+    // Show/hide Empty State
+    const noJobsEl = document.getElementById('no-filter-jobs');
+    if (noJobsEl) {
+        noJobsEl.style.display = visibleCount === 0 ? 'block' : 'none';
+    }
+
+    // Refresh active chips
+    updateActiveChips();
+
+    // Auto-select first visible job if currently active is filtered out
+    const currentActive = container.querySelector('.job-card.job-card-active');
+    if (!currentActive || currentActive.style.display === 'none') {
+        const firstVisible = cards.find(c => c.style.display !== 'none');
+        if (firstVisible && firstVisible.dataset.jobIndex !== undefined) {
+            selectJobPreview(parseInt(firstVisible.dataset.jobIndex, 10));
+        }
+    }
+}
+
+document.addEventListener('DOMContentLoaded', function() {
+    filterJobs();
+});
+</script>
+{% endblock %}

@@ -1,0 +1,1510 @@
+{% extends "base.html" %}
+
+{% block title %}Profile & Account Settings — JobSnap{% endblock %}
+
+{% block content %}
+<!-- Top Header & Hero Area -->
+<div class="profile-top-banner">
+    <div>
+        <div class="hero-tag" style="background: #dbeafe; color: #2563eb; display: inline-flex; align-items: center; gap: 0.4rem; padding: 0.3rem 0.75rem; border-radius: 999px; font-size: 0.8rem; font-weight: 700; margin-bottom: 0.6rem;">
+            <i class="fa-solid fa-user-gear"></i> Account Settings
+        </div>
+        <h1 style="font-family: var(--font-heading); font-size: 1.85rem; font-weight: 800; color: var(--text-main); margin: 0 0 0.35rem 0;">
+            Profile & Security Settings
+        </h1>
+        <p style="color: var(--text-muted); font-size: 0.95rem; margin: 0;">
+            Manage your personal credentials, career identity, password security, and account preferences.
+        </p>
+    </div>
+
+    {% if resume %}
+    <div>
+        <form method="POST" style="margin: 0;">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+            <input type="hidden" name="action" value="sync_from_resume">
+            <button type="submit" class="btn btn-outline btn-sm" title="Re-extract and sync profile fields from your uploaded resume" style="background: var(--bg-card); display: inline-flex; align-items: center; gap: 0.45rem;">
+                <i class="fa-solid fa-wand-magic-sparkles" style="color: var(--primary);"></i>
+                <span>Auto-fill from Resume</span>
+            </button>
+        </form>
+    </div>
+    {% endif %}
+</div>
+
+<!-- Profile Hero Identity & Health Card -->
+<div class="profile-hero-card">
+    <div class="profile-identity-left">
+        <div class="profile-avatar-wrapper">
+            <div class="profile-avatar-circle" id="profileHeroAvatar">
+                {% if current_user.profile_image %}
+                    <img src="{{ url_for('main.serve_avatar', filename=current_user.profile_image) }}" alt="{{ current_user.name }}" class="profile-avatar-img" id="heroAvatarImg">
+                {% else %}
+                    <span id="heroAvatarInitial">{{ current_user.name[0] if current_user.name else 'U' }}</span>
+                {% endif %}
+            </div>
+            <button type="button" class="profile-avatar-edit-btn" onclick="openAvatarModal()" title="Upload or change profile picture" aria-label="Upload or change profile picture">
+                <i class="fa-solid fa-camera"></i>
+            </button>
+            <div class="profile-avatar-status-badge" title="Account Active & Verified">
+                <i class="fa-solid fa-check"></i>
+            </div>
+        </div>
+
+        <div class="profile-meta-header">
+            <div class="profile-name-row">
+                <h2 class="profile-user-name">{{ current_user.name or 'Candidate User' }}</h2>
+                <span class="profile-verified-chip" title="Verified JobSnap Candidate">
+                    <i class="fa-solid fa-circle-check"></i> Verified
+                </span>
+                <span class="profile-role-chip">
+                    <i class="fa-solid fa-briefcase" style="font-size: 0.75rem;"></i>
+                    {{ current_user.title_role if current_user.title_role else 'Job Seeker' }}
+                </span>
+            </div>
+
+            <div class="profile-contact-grid">
+                <div class="profile-contact-item" title="Primary Verified Email">
+                    <i class="fa-regular fa-envelope"></i>
+                    <span>{{ current_user.email }}</span>
+                </div>
+                <div class="profile-contact-item" title="Contact Phone">
+                    <i class="fa-solid fa-phone"></i>
+                    <span>{{ current_user.phone if current_user.phone else 'No phone provided' }}</span>
+                </div>
+                <div class="profile-contact-item" title="Location">
+                    <i class="fa-solid fa-location-dot"></i>
+                    <span>{{ current_user.location if current_user.location else 'Location not set' }}</span>
+                </div>
+                {% if current_user.linkedin_url %}
+                <div class="profile-contact-item">
+                    <i class="fa-brands fa-linkedin" style="color: #0077b5;"></i>
+                    <a href="{{ current_user.linkedin_url }}" target="_blank" rel="noopener noreferrer" style="color: var(--primary); text-decoration: none;">
+                        LinkedIn Profile <i class="fa-solid fa-arrow-up-right-from-square" style="font-size: 0.7rem;"></i>
+                    </a>
+                </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+
+    <!-- Profile Completion Score Card Matching User Reference -->
+    {% set pct = completion.percentage if completion else 100 %}
+    <div class="profile-completion-card" title="Profile Strength: {{ pct }}% Complete" aria-label="Profile Strength: {{ pct }}% Complete">
+        <span style="display: none;" aria-hidden="true">Profile Strength</span>
+        <div class="profile-completion-ring-wrap">
+            <svg class="profile-ring-svg" viewBox="0 0 80 80">
+                <circle class="profile-ring-bg" cx="40" cy="40" r="34" />
+                <circle class="profile-ring-fill" id="profileRingFill" cx="40" cy="40" r="34"
+                        data-target-pct="{{ pct }}" />
+            </svg>
+            <div class="profile-ring-label-wrap">
+                <span class="profile-ring-percent-text" id="profileRingPercent">0%</span>
+            </div>
+        </div>
+
+        <div class="profile-completion-text-wrap">
+            <h4 class="profile-completion-title">Profile Completion</h4>
+            <p class="profile-completion-desc">
+                {% if pct >= 100 %}
+                    Your profile is fully completed to improve job recommendations.
+                {% else %}
+                    Complete your profile to improve job recommendations.
+                {% endif %}
+            </p>
+        </div>
+    </div>
+</div>
+
+<!-- Modern Tab Navigation -->
+<div class="profile-subnav-container">
+    <div class="profile-subnav" role="tablist">
+        <button type="button" class="profile-subnav-btn active" id="btn-tab-personal" onclick="switchProfileTab('personal')" role="tab" aria-selected="true">
+            <i class="fa-solid fa-user"></i>
+            <span>Personal Information</span>
+        </button>
+        <button type="button" class="profile-subnav-btn" id="btn-tab-security" onclick="switchProfileTab('security')" role="tab" aria-selected="false">
+            <i class="fa-solid fa-shield-halved"></i>
+            <span>Security & Password</span>
+            <span class="tab-badge" style="background: #e0f2fe; color: #0284c7;">Encrypted</span>
+        </button>
+        <button type="button" class="profile-subnav-btn" id="btn-tab-career" onclick="switchProfileTab('career')" role="tab" aria-selected="false">
+            <i class="fa-solid fa-graduation-cap"></i>
+            <span>Resume & Career Profile</span>
+            {% if resume %}<span class="tab-badge" style="background: #ecfdf5; color: #059669;">Active</span>{% endif %}
+        </button>
+        <button type="button" class="profile-subnav-btn" id="btn-tab-preferences" onclick="switchProfileTab('preferences')" role="tab" aria-selected="false">
+            <i class="fa-solid fa-sliders"></i>
+            <span>Account Preferences</span>
+        </button>
+    </div>
+</div>
+
+<!-- ==========================================
+     TAB 1: Personal Information
+     ========================================== -->
+<div id="pane-personal" class="profile-tab-pane" style="display: block;">
+    <div class="grid-split-3-2">
+        <div class="card-panel">
+            <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 1.5rem;">
+                <div>
+                    <h3 style="font-family: var(--font-heading); font-size: 1.15rem; font-weight: 700; color: var(--text-main); margin: 0 0 0.25rem 0;">
+                        Personal & Professional Details
+                    </h3>
+                    <p style="font-size: 0.85rem; color: var(--text-muted); margin: 0;">
+                        Update your identity, contact information, and public profile links.
+                    </p>
+                </div>
+            </div>
+
+            <!-- Profile Photo Management Section -->
+            <div class="profile-photo-manager-card">
+                <div class="profile-photo-circle-preview" id="managerPhotoPreview">
+                    {% if current_user.profile_image %}
+                        <img src="{{ url_for('main.serve_avatar', filename=current_user.profile_image) }}" alt="{{ current_user.name }}" class="profile-avatar-img" id="managerAvatarImg">
+                    {% else %}
+                        <span id="managerAvatarInitial">{{ current_user.name[0] if current_user.name else 'U' }}</span>
+                    {% endif %}
+                </div>
+                <div class="profile-photo-manager-info">
+                    <h4 class="profile-photo-title">Profile Picture</h4>
+                    <p class="profile-photo-subtitle">
+                        Upload a clear JPG, PNG, or WEBP photo (up to 5MB). Use our interactive crop and zoom tool to frame your avatar.
+                    </p>
+                    <div class="profile-photo-btn-group">
+                        <button type="button" class="btn btn-primary btn-sm" onclick="openAvatarModal()" id="btnOpenAvatarModal">
+                            <i class="fa-solid fa-camera"></i>
+                            <span>{{ 'Change Photo' if current_user.profile_image else 'Upload Photo' }}</span>
+                        </button>
+                        {% if current_user.profile_image %}
+                        <form method="POST" style="margin: 0; display: inline-block;" onsubmit="return confirm('Are you sure you want to remove your profile picture? This will restore the default initials avatar.');">
+                            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                            <input type="hidden" name="action" value="remove_avatar">
+                            <button type="submit" class="btn btn-outline btn-sm" id="btnRemoveAvatar" style="color: #ef4444; border-color: rgba(239, 68, 68, 0.4);">
+                                <i class="fa-regular fa-trash-can"></i>
+                                <span>Remove</span>
+                            </button>
+                        </form>
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+
+            <form method="POST" id="profileDetailsForm">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                <input type="hidden" name="action" value="update_profile">
+
+                <div class="grid-split-equal" style="margin-bottom: 1.25rem; gap: 1.25rem;">
+                    <div class="form-field" style="margin: 0;">
+                        <label class="form-label" for="name">Full Name <span style="color: #ef4444;">*</span></label>
+                        <div class="input-icon-group">
+                            <i class="fa-regular fa-user field-icon"></i>
+                            <input type="text" id="name" name="name" class="input-control" value="{{ current_user.name }}" placeholder="e.g. Raju Ahammed" required>
+                        </div>
+                    </div>
+
+                    <div class="form-field" style="margin: 0;">
+                        <label class="form-label" for="title_role">Professional Title / Target Role</label>
+                        <div class="input-icon-group">
+                            <i class="fa-solid fa-briefcase field-icon"></i>
+                            <input type="text" id="title_role" name="title_role" class="input-control" value="{{ current_user.title_role or '' }}" placeholder="e.g. Backend Developer, Software Engineer">
+                        </div>
+                    </div>
+
+                    <div class="form-field" style="margin: 0;">
+                        <label class="form-label" for="email">Email Address <span style="font-size: 0.72rem; color: var(--text-muted);">(Primary Identity)</span></label>
+                        <div class="input-icon-group">
+                            <i class="fa-regular fa-envelope field-icon"></i>
+                            <input type="email" id="email" name="email" class="input-control" value="{{ current_user.email }}" readonly style="background: var(--bg-subtle); cursor: not-allowed;">
+                        </div>
+                    </div>
+
+                    <div class="form-field" style="margin: 0;">
+                        <label class="form-label" for="phone">Phone Number</label>
+                        <div class="input-icon-group">
+                            <i class="fa-solid fa-phone field-icon"></i>
+                            <input type="text" id="phone" name="phone" class="input-control" value="{{ current_user.phone or '' }}" placeholder="e.g. +880 1700 000000">
+                        </div>
+                    </div>
+
+                    <div class="form-field" style="margin: 0;">
+                        <label class="form-label" for="location">Location / City</label>
+                        <div class="input-icon-group">
+                            <i class="fa-solid fa-location-dot field-icon"></i>
+                            <input type="text" id="location" name="location" class="input-control" value="{{ current_user.location or '' }}" placeholder="e.g. Dhaka, Bangladesh or Remote">
+                        </div>
+                    </div>
+
+                    <div class="form-field" style="margin: 0;">
+                        <label class="form-label" for="date_of_birth">Date of Birth</label>
+                        <div class="input-icon-group">
+                            <i class="fa-regular fa-calendar field-icon"></i>
+                            <input type="text" id="date_of_birth" name="date_of_birth" class="input-control" value="{{ current_user.date_of_birth or '' }}" placeholder="YYYY-MM-DD">
+                        </div>
+                    </div>
+
+                    <div class="form-field" style="margin: 0; grid-column: span 2;">
+                        <label class="form-label" for="linkedin_url">LinkedIn Profile URL</label>
+                        <div class="input-icon-group">
+                            <i class="fa-brands fa-linkedin field-icon"></i>
+                            <input type="text" id="linkedin_url" name="linkedin_url" class="input-control" value="{{ current_user.linkedin_url or '' }}" placeholder="https://www.linkedin.com/in/username">
+                        </div>
+                    </div>
+                </div>
+
+                <div class="profile-action-bar">
+                    <button type="submit" class="btn btn-primary btn-sm" style="display: inline-flex; align-items: center; gap: 0.5rem; padding: 0.65rem 1.4rem;">
+                        <i class="fa-solid fa-floppy-disk"></i>
+                        <span>Save Profile Changes</span>
+                    </button>
+                </div>
+            </form>
+        </div>
+
+        <!-- Sidebar Helper Card -->
+        <div style="display: flex; flex-direction: column; gap: 1.5rem;">
+            <div class="card-panel">
+                <h4 style="font-family: var(--font-heading); font-size: 1rem; font-weight: 700; margin-bottom: 0.85rem; display: flex; align-items: center; gap: 0.5rem; color: var(--text-main);">
+                    <i class="fa-solid fa-bolt" style="color: var(--primary);"></i> Quick Profile Actions
+                </h4>
+                <div style="display: flex; flex-direction: column; gap: 0.75rem;">
+                    {% if resume %}
+                    <form method="POST" style="margin: 0;">
+                        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                        <input type="hidden" name="action" value="sync_from_resume">
+                        <button type="submit" class="nav-item-link" style="width: 100%; border: none; background: var(--bg-subtle); color: var(--text-main); justify-content: space-between; cursor: pointer; text-align: left; padding: 0.75rem 1rem; border-radius: var(--radius-md);">
+                            <span><i class="fa-solid fa-wand-magic-sparkles" style="color: var(--primary); margin-right: 0.5rem;"></i> Sync from Resume</span>
+                            <i class="fa-solid fa-arrow-rotate-right" style="font-size: 0.75rem; color: var(--text-muted);"></i>
+                        </button>
+                    </form>
+                    {% endif %}
+
+                    <a href="{{ url_for('resume.upload') }}" class="nav-item-link" style="background: var(--bg-subtle); color: var(--text-main); justify-content: space-between; padding: 0.75rem 1rem; border-radius: var(--radius-md);">
+                        <span><i class="fa-solid fa-cloud-arrow-up" style="color: var(--primary); margin-right: 0.5rem;"></i> Upload New Resume</span>
+                        <i class="fa-solid fa-chevron-right" style="font-size: 0.75rem; color: var(--text-muted);"></i>
+                    </a>
+
+                    <a href="javascript:void(0)" onclick="switchProfileTab('security')" class="nav-item-link" style="background: var(--bg-subtle); color: var(--text-main); justify-content: space-between; padding: 0.75rem 1rem; border-radius: var(--radius-md);">
+                        <span><i class="fa-solid fa-lock" style="color: var(--primary); margin-right: 0.5rem;"></i> Manage Password</span>
+                        <i class="fa-solid fa-chevron-right" style="font-size: 0.75rem; color: var(--text-muted);"></i>
+                    </a>
+
+                    <a href="{{ url_for('auth.activity') }}" class="nav-item-link" style="background: var(--bg-subtle); color: var(--text-main); justify-content: space-between; padding: 0.75rem 1rem; border-radius: var(--radius-md);">
+                        <span><i class="fa-solid fa-clock-rotate-left" style="color: var(--primary); margin-right: 0.5rem;"></i> Session Activity Log</span>
+                        <i class="fa-solid fa-chevron-right" style="font-size: 0.75rem; color: var(--text-muted);"></i>
+                    </a>
+                </div>
+            </div>
+
+            <!-- Account Summary Card -->
+            <div class="card-panel" style="background: var(--bg-subtle); border-color: var(--border-color);">
+                <div style="font-size: 0.82rem; font-weight: 700; color: var(--text-muted); text-transform: uppercase; margin-bottom: 0.75rem; display: flex; align-items: center; gap: 0.4rem;">
+                    <i class="fa-solid fa-circle-info" style="color: var(--primary);"></i> Account Metadata
+                </div>
+                <div style="display: flex; flex-direction: column; gap: 0.5rem; font-size: 0.83rem; color: var(--text-muted);">
+                    <div><strong>Member Since:</strong> {{ current_user.created_at.strftime('%b %d, %Y') if current_user.created_at else 'Active' }}</div>
+                    <div><strong>Last Login:</strong> {{ current_user.last_login.strftime('%b %d, %Y %I:%M %p') if current_user.last_login else 'Active Session' }}</div>
+                    <div><strong>Total Sign-ins:</strong> {{ current_user.login_count or 1 }}</div>
+                    <div><strong>Status:</strong> <span style="color: #059669; font-weight: 600;">Active & Secured</span></div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- ==========================================
+     TAB 2: Security & Password Management
+     ========================================== -->
+<div id="pane-security" class="profile-tab-pane" style="display: none;">
+    <div class="grid-split-3-2">
+        <!-- Left: Redesigned Password Management Card -->
+        <div class="card-panel">
+            <div style="margin-bottom: 1.5rem;">
+                <div style="display: flex; align-items: center; gap: 0.5rem; margin-bottom: 0.35rem;">
+                    <div style="width: 32px; height: 32px; border-radius: 8px; background: #dbeafe; color: var(--primary); display: flex; align-items: center; justify-content: center; font-size: 0.95rem;">
+                        <i class="fa-solid fa-lock"></i>
+                    </div>
+                    <h3 style="font-family: var(--font-heading); font-size: 1.2rem; font-weight: 700; color: var(--text-main); margin: 0;">
+                        Change Account Password
+                    </h3>
+                </div>
+                <p style="font-size: 0.88rem; color: var(--text-muted); margin: 0;">
+                    Enhance your account defense by choosing a strong, multi-factor password with letters, numbers, and symbols.
+                </p>
+            </div>
+
+            <!-- Client-Side Form Inline Alert Area -->
+            <div id="passwordAlertBox" style="display: none; margin-bottom: 1.25rem;"></div>
+
+            <form method="POST" id="passwordChangeForm" onsubmit="return validatePasswordForm(event);">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                <input type="hidden" name="action" value="change_password">
+
+                <!-- 1. Current Password Field -->
+                <div class="form-field" style="margin-bottom: 1.25rem;">
+                    <label class="form-label" for="current_password">
+                        Current Password <span style="color: #ef4444;">*</span>
+                    </label>
+                    <div class="password-input-group">
+                        <i class="fa-solid fa-lock field-icon"></i>
+                        <input type="password" id="current_password" name="current_password" class="input-control" placeholder="Enter your current password" autocomplete="current-password" required>
+                        <button type="button" class="password-toggle-btn" onclick="togglePasswordVisibility('current_password', this)" title="Show / Hide password" aria-label="Toggle password visibility">
+                            <i class="fa-regular fa-eye"></i>
+                        </button>
+                    </div>
+                    <div style="font-size: 0.78rem; color: var(--text-muted); margin-top: 0.3rem;">
+                        Enter the password you currently use to log in.
+                    </div>
+                </div>
+
+                <!-- 2. New Password Field -->
+                <div class="form-field" style="margin-bottom: 0.85rem;">
+                    <label class="form-label" for="new_password">
+                        New Password <span style="color: #ef4444;">*</span>
+                    </label>
+                    <div class="password-input-group">
+                        <i class="fa-solid fa-key field-icon"></i>
+                        <input type="password" id="new_password" name="new_password" class="input-control" placeholder="Enter new strong password" autocomplete="new-password" required>
+                        <button type="button" class="password-toggle-btn" onclick="togglePasswordVisibility('new_password', this)" title="Show / Hide password" aria-label="Toggle password visibility">
+                            <i class="fa-regular fa-eye"></i>
+                        </button>
+                    </div>
+
+                    <!-- Password Strength Meter Box -->
+                    <div class="password-strength-box">
+                        <div class="strength-meter-header">
+                            <span class="strength-meter-title">
+                                <i class="fa-solid fa-gauge-high"></i> Password Strength
+                            </span>
+                            <span id="strengthLabel" class="strength-meter-label">Empty</span>
+                        </div>
+
+                        <!-- 4 Segmented Progress Bars -->
+                        <div class="strength-bar-track">
+                            <div class="strength-bar-segment" id="strengthSegment1"></div>
+                            <div class="strength-bar-segment" id="strengthSegment2"></div>
+                            <div class="strength-bar-segment" id="strengthSegment3"></div>
+                            <div class="strength-bar-segment" id="strengthSegment4"></div>
+                        </div>
+
+                        <!-- Interactive Requirements Checklist -->
+                        <div class="password-checklist">
+                            <div class="checklist-item invalid" id="ruleLength">
+                                <span class="checklist-icon"><i class="fa-solid fa-circle-notch"></i></span>
+                                <span>At least 8 characters</span>
+                            </div>
+                            <div class="checklist-item invalid" id="ruleUppercase">
+                                <span class="checklist-icon"><i class="fa-solid fa-circle-notch"></i></span>
+                                <span>One uppercase letter (A-Z)</span>
+                            </div>
+                            <div class="checklist-item invalid" id="ruleLowercase">
+                                <span class="checklist-icon"><i class="fa-solid fa-circle-notch"></i></span>
+                                <span>One lowercase letter (a-z)</span>
+                            </div>
+                            <div class="checklist-item invalid" id="ruleNumberOrSymbol">
+                                <span class="checklist-icon"><i class="fa-solid fa-circle-notch"></i></span>
+                                <span>One number or special symbol</span>
+                            </div>
+                            <div class="checklist-item invalid" id="ruleDifferent">
+                                <span class="checklist-icon"><i class="fa-solid fa-circle-notch"></i></span>
+                                <span>Different from current password</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 3. Confirm New Password Field -->
+                <div class="form-field" style="margin-bottom: 1.25rem;">
+                    <label class="form-label" for="confirm_password">
+                        Confirm New Password <span style="color: #ef4444;">*</span>
+                    </label>
+                    <div class="password-input-group">
+                        <i class="fa-solid fa-shield-halved field-icon"></i>
+                        <input type="password" id="confirm_password" name="confirm_password" class="input-control" placeholder="Re-enter your new password to confirm" autocomplete="new-password" required>
+                        <button type="button" class="password-toggle-btn" onclick="togglePasswordVisibility('confirm_password', this)" title="Show / Hide password" aria-label="Toggle password visibility">
+                            <i class="fa-regular fa-eye"></i>
+                        </button>
+                    </div>
+
+                    <!-- Match Status Feedback Badge -->
+                    <div id="matchStatusBadge" class="match-status-badge" style="display: none;">
+                        <i id="matchIcon" class="fa-solid fa-circle-info"></i>
+                        <span id="matchText">Passwords match</span>
+                    </div>
+                </div>
+
+                <!-- Security Encryption Notice Banner -->
+                <div class="security-notice-banner">
+                    <i class="fa-solid fa-shield-halved" style="font-size: 1.15rem; color: var(--primary); margin-top: 0.1rem;"></i>
+                    <div>
+                        <strong>Cryptographic Protection:</strong> Passwords are salt-hashed using secure scrypt/PBKDF2 algorithms. Updating your password will invalidate outdated sessions and log an audit security event to your activity history.
+                    </div>
+                </div>
+
+                <!-- Submit Button -->
+                <div class="profile-action-bar">
+                    <button type="submit" id="btnSubmitPassword" class="btn btn-primary btn-sm" style="display: inline-flex; align-items: center; gap: 0.5rem; padding: 0.7rem 1.5rem;">
+                        <i class="fa-solid fa-key"></i>
+                        <span>Update Password</span>
+                    </button>
+                </div>
+            </form>
+        </div>
+
+        <!-- Right: Security Center, Audit & Privacy -->
+        <div style="display: flex; flex-direction: column; gap: 1.5rem;">
+            <!-- Security Audit Card -->
+            <div class="card-panel">
+                <div style="display: flex; align-items: center; gap: 0.5rem; margin-bottom: 0.75rem;">
+                    <div style="width: 32px; height: 32px; border-radius: 8px; background: #ecfdf5; color: #059669; display: flex; align-items: center; justify-content: center;">
+                        <i class="fa-solid fa-clock-rotate-left"></i>
+                    </div>
+                    <h4 style="font-family: var(--font-heading); font-size: 1rem; font-weight: 700; color: var(--text-main); margin: 0;">
+                        Security & Active Sessions
+                    </h4>
+                </div>
+                <p style="font-size: 0.83rem; color: var(--text-muted); line-height: 1.5; margin-bottom: 1rem;">
+                    JobSnap records all authentication events, device signatures, and timestamped activity for transparency and tamper resistance.
+                </p>
+
+                <div style="background: var(--bg-subtle); padding: 0.85rem 1rem; border-radius: var(--radius-md); font-size: 0.82rem; margin-bottom: 1rem; border: 1px solid var(--border-color);">
+                    <div style="margin-bottom: 0.4rem; color: var(--text-main);">
+                        <strong>Active Device:</strong> {{ request.headers.get('User-Agent', 'Current Browser')[:35] }}...
+                    </div>
+                    <div style="color: var(--text-muted);">
+                        <strong>Last Login Timestamp:</strong> {{ current_user.last_login.strftime('%Y-%m-%d %H:%M:%S UTC') if current_user.last_login else 'Active' }}
+                    </div>
+                </div>
+
+                <a href="{{ url_for('auth.activity') }}" class="btn btn-outline btn-sm" style="width: 100%; justify-content: center;">
+                    <i class="fa-solid fa-shield-cat"></i> View Full Security Log
+                </a>
+            </div>
+
+            <!-- Privacy & Data Export Card -->
+            <div class="card-panel">
+                <div style="display: flex; align-items: center; gap: 0.5rem; margin-bottom: 0.75rem;">
+                    <div style="width: 32px; height: 32px; border-radius: 8px; background: #eff6ff; color: var(--primary); display: flex; align-items: center; justify-content: center;">
+                        <i class="fa-solid fa-file-arrow-down"></i>
+                    </div>
+                    <h4 style="font-family: var(--font-heading); font-size: 1rem; font-weight: 700; color: var(--text-main); margin: 0;">
+                        Data Privacy & Export
+                    </h4>
+                </div>
+                <p style="font-size: 0.83rem; color: var(--text-muted); line-height: 1.5; margin-bottom: 1rem;">
+                    You own your resume parsing datasets, skills vectors, and account preferences. You can download an export anytime.
+                </p>
+
+                <a href="{{ url_for('auth.export_my_data') }}" class="btn btn-outline btn-sm" style="width: 100%; justify-content: center; background: var(--bg-card);">
+                    <i class="fa-solid fa-download"></i> Export Account Data (JSON)
+                </a>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- ==========================================
+     TAB 3: Resume & Career Profile
+     ========================================== -->
+<div id="pane-career" class="profile-tab-pane" style="display: none;">
+    <div class="grid-split-3-2">
+        <div style="display: flex; flex-direction: column; gap: 1.5rem;">
+            <!-- Resume Overview Card -->
+            <div class="card-panel">
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.25rem;">
+                    <div style="display: flex; align-items: center; gap: 0.65rem;">
+                        <div style="width: 36px; height: 36px; border-radius: 8px; background: #fee2e2; color: #dc2626; display: flex; align-items: center; justify-content: center; font-weight: 800; font-size: 0.9rem;">
+                            PDF
+                        </div>
+                        <div>
+                            <h3 style="font-family: var(--font-heading); font-size: 1.1rem; font-weight: 700; color: var(--text-main); margin: 0;">
+                                {{ resume.filename if resume else 'No Resume Uploaded' }}
+                            </h3>
+                            <div style="font-size: 0.8rem; color: var(--text-muted);">
+                                {% if resume %}
+                                Uploaded on {{ resume.upload_date.strftime('%B %d, %Y') }} • ATS Score: <strong>{{ resume.ats_score }}%</strong>
+                                {% else %}
+                                Upload your PDF/DOCX resume to activate AI scoring.
+                                {% endif %}
+                            </div>
+                        </div>
+                    </div>
+
+                    <div>
+                        <a href="{{ url_for('resume.upload') }}" class="btn btn-outline btn-sm">
+                            <i class="fa-solid fa-cloud-arrow-up"></i> Replace Resume
+                        </a>
+                    </div>
+                </div>
+
+                <!-- Verified Skills List -->
+                <div style="margin-bottom: 1.5rem;">
+                    <h4 style="font-size: 0.88rem; font-weight: 700; color: var(--text-main); margin-bottom: 0.65rem; text-transform: uppercase; letter-spacing: 0.04em;">
+                        <i class="fa-solid fa-tags" style="color: var(--primary);"></i> Extracted Skills ({{ resume.skills|length if resume and resume.skills else 0 }})
+                    </h4>
+                    {% if resume and resume.skills %}
+                        <div style="display: flex; flex-wrap: wrap; gap: 0.45rem;">
+                            {% for skill in resume.skills %}
+                                <span class="badge-pill" style="background: var(--bg-subtle); color: var(--text-main); border: 1px solid var(--border-color); font-weight: 500; font-size: 0.82rem; padding: 0.25rem 0.65rem;">
+                                    <i class="fa-solid fa-check" style="color: #10b981; font-size: 0.72rem; margin-right: 0.25rem;"></i>{{ skill }}
+                                </span>
+                            {% endfor %}
+                        </div>
+                    {% else %}
+                        <p style="color: var(--text-muted); font-size: 0.88rem;">No skills identified yet. Upload a resume to automatically extract verified skills.</p>
+                    {% endif %}
+                </div>
+
+                <!-- Education Section -->
+                <div style="margin-bottom: 1.5rem; padding-top: 1.25rem; border-top: 1px solid var(--border-color);">
+                    <h4 style="font-size: 0.88rem; font-weight: 700; color: var(--text-main); margin-bottom: 0.5rem; text-transform: uppercase; letter-spacing: 0.04em;">
+                        <i class="fa-solid fa-graduation-cap" style="color: var(--primary);"></i> Education
+                    </h4>
+                    {% if resume and resume.education %}
+                        <div style="white-space: pre-line; color: var(--text-main); line-height: 1.6; font-size: 0.9rem; background: var(--bg-subtle); padding: 1rem; border-radius: var(--radius-md); border: 1px solid var(--border-color);">
+                            {{ resume.education_summary or resume.education }}
+                        </div>
+                    {% else %}
+                        <p style="color: var(--text-muted); font-size: 0.88rem;">No education history found.</p>
+                    {% endif %}
+                </div>
+
+                <!-- Work Experience Section -->
+                <div style="padding-top: 1.25rem; border-top: 1px solid var(--border-color);">
+                    <h4 style="font-size: 0.88rem; font-weight: 700; color: var(--text-main); margin-bottom: 0.5rem; text-transform: uppercase; letter-spacing: 0.04em;">
+                        <i class="fa-solid fa-briefcase" style="color: var(--primary);"></i> Work Experience
+                    </h4>
+                    {% if resume and resume.experience %}
+                        <div style="white-space: pre-line; color: var(--text-main); line-height: 1.6; font-size: 0.9rem; background: var(--bg-subtle); padding: 1rem; border-radius: var(--radius-md); border: 1px solid var(--border-color);">
+                            {{ resume.experience }}
+                        </div>
+                    {% else %}
+                        <p style="color: var(--text-muted); font-size: 0.88rem;">No work experience entries recorded yet.</p>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+
+        <!-- Right: Job Preferences Card -->
+        <div style="display: flex; flex-direction: column; gap: 1.5rem;">
+            <div class="card-panel">
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem;">
+                    <h4 style="font-family: var(--font-heading); font-size: 1rem; font-weight: 700; color: var(--text-main); margin: 0; display: flex; align-items: center; gap: 0.5rem;">
+                        <i class="fa-solid fa-sliders" style="color: var(--primary);"></i> Matching Preferences
+                    </h4>
+                    <a href="{{ url_for('preferences.preferences') }}" class="btn btn-outline btn-sm" style="font-size: 0.78rem; padding: 0.3rem 0.65rem;">
+                        <i class="fa-solid fa-pen"></i> Edit
+                    </a>
+                </div>
+
+                {% if current_user.job_preference %}
+                <div style="display: flex; flex-direction: column; gap: 0.85rem;">
+                    <div style="background: var(--bg-subtle); padding: 0.85rem; border-radius: var(--radius-md); border: 1px solid var(--border-color);">
+                        <div style="font-size: 0.76rem; color: var(--text-muted); text-transform: uppercase; font-weight: 600;">Target Role</div>
+                        <div style="font-weight: 700; color: var(--text-main); font-size: 0.92rem; margin-top: 0.2rem;">{{ current_user.job_preference.target_role }}</div>
+                    </div>
+
+                    <div style="background: var(--bg-subtle); padding: 0.85rem; border-radius: var(--radius-md); border: 1px solid var(--border-color);">
+                        <div style="font-size: 0.76rem; color: var(--text-muted); text-transform: uppercase; font-weight: 600;">Work Mode & Location</div>
+                        <div style="font-weight: 700; color: var(--text-main); font-size: 0.92rem; margin-top: 0.2rem;">
+                            {{ current_user.job_preference.location_preference }} ({{ current_user.job_preference.location }})
+                        </div>
+                    </div>
+
+                    <div style="background: var(--bg-subtle); padding: 0.85rem; border-radius: var(--radius-md); border: 1px solid var(--border-color);">
+                        <div style="font-size: 0.76rem; color: var(--text-muted); text-transform: uppercase; font-weight: 600;">Seniority & Job Type</div>
+                        <div style="font-weight: 700; color: var(--text-main); font-size: 0.92rem; margin-top: 0.2rem;">
+                            {{ current_user.job_preference.experience_level }} • {{ current_user.job_preference.job_type }}
+                        </div>
+                    </div>
+                </div>
+                {% else %}
+                <p style="color: var(--text-muted); font-size: 0.88rem; margin-bottom: 1rem;">
+                    No job preferences configured yet. Setting target roles improves match quality.
+                </p>
+                <a href="{{ url_for('preferences.preferences') }}" class="btn btn-primary btn-sm" style="width: 100%; justify-content: center;">
+                    Set Preferences
+                </a>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- ==========================================
+     TAB 4: Account Preferences
+     ========================================== -->
+<div id="pane-preferences" class="profile-tab-pane" style="display: none;">
+    <div class="grid-split-3-2">
+        <div class="card-panel">
+            <div style="margin-bottom: 1.5rem;">
+                <h3 style="font-family: var(--font-heading); font-size: 1.15rem; font-weight: 700; color: var(--text-main); margin: 0 0 0.25rem 0;">
+                    Preferences & Experience
+                </h3>
+                <p style="font-size: 0.85rem; color: var(--text-muted); margin: 0;">
+                    Customize how JobSnap looks, feels, and communicates with you.
+                </p>
+            </div>
+
+            <form method="POST" id="preferencesForm">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                <input type="hidden" name="action" value="update_settings">
+
+                <div class="grid-split-equal" style="margin-bottom: 1.5rem; gap: 1.25rem;">
+                    <div class="form-field" style="margin: 0;">
+                        <label class="form-label" for="theme">
+                            <i class="fa-solid fa-palette" style="color: var(--primary);"></i> Color Theme
+                        </label>
+                        <select id="theme" name="theme" class="input-control" onchange="previewTheme(this.value)">
+                            <option value="Light" {% if current_user.theme == 'Light' %}selected{% endif %}>Light Mode (Clean White)</option>
+                            <option value="Dark" {% if current_user.theme == 'Dark' %}selected{% endif %}>Dark Mode (Navy Night)</option>
+                        </select>
+                        <div style="font-size: 0.78rem; color: var(--text-muted); margin-top: 0.35rem;">
+                            Controls the dashboard and navigation appearance.
+                        </div>
+                    </div>
+
+                    <div class="form-field" style="margin: 0;">
+                        <label class="form-label" for="language">
+                            <i class="fa-solid fa-globe" style="color: var(--primary);"></i> System Language
+                        </label>
+                        <select id="language" name="language" class="input-control">
+                            <option value="English" {% if current_user.language == 'English' %}selected{% endif %}>English (US)</option>
+                            <option value="Spanish" {% if current_user.language == 'Spanish' %}selected{% endif %}>Español</option>
+                            <option value="French" {% if current_user.language == 'French' %}selected{% endif %}>Français</option>
+                        </select>
+                    </div>
+                </div>
+
+                <div style="margin-bottom: 1.5rem; padding-top: 1.25rem; border-top: 1px solid var(--border-color);">
+                    <h4 style="font-size: 0.95rem; font-weight: 700; color: var(--text-main); margin-bottom: 0.75rem; display: flex; align-items: center; gap: 0.5rem;">
+                        <i class="fa-solid fa-bell" style="color: var(--primary);"></i> Notification Preferences
+                    </h4>
+
+                    <div style="display: flex; flex-direction: column; gap: 1rem;">
+                        <label style="display: flex; justify-content: space-between; align-items: center; cursor: pointer; padding: 0.75rem 1rem; background: var(--bg-subtle); border-radius: var(--radius-md); border: 1px solid var(--border-color);">
+                            <div>
+                                <div style="font-weight: 600; color: var(--text-main); font-size: 0.9rem;">Job Recommendation Alerts</div>
+                                <div style="font-size: 0.78rem; color: var(--text-muted);">Receive immediate notifications when verified matching openings arrive.</div>
+                            </div>
+                            <input type="checkbox" name="notifications_enabled" {% if current_user.notifications_enabled %}checked{% endif %} style="width: 18px; height: 18px; accent-color: var(--primary);">
+                        </label>
+
+                        <label style="display: flex; justify-content: space-between; align-items: center; cursor: pointer; padding: 0.75rem 1rem; background: var(--bg-subtle); border-radius: var(--radius-md); border: 1px solid var(--border-color);">
+                            <div>
+                                <div style="font-weight: 600; color: var(--text-main); font-size: 0.9rem;">Application & Status Tracking</div>
+                                <div style="font-size: 0.78rem; color: var(--text-muted);">Get updates when employers review your saved or submitted applications.</div>
+                            </div>
+                            <input type="checkbox" checked style="width: 18px; height: 18px; accent-color: var(--primary);">
+                        </label>
+
+                        <label style="display: flex; justify-content: space-between; align-items: center; cursor: pointer; padding: 0.75rem 1rem; background: var(--bg-subtle); border-radius: var(--radius-md); border: 1px solid var(--border-color);">
+                            <div>
+                                <div style="font-weight: 600; color: var(--text-main); font-size: 0.9rem;">Career Insights & Resume Tips</div>
+                                <div style="font-size: 0.78rem; color: var(--text-muted);">Weekly AI career analysis and market hiring trends.</div>
+                            </div>
+                            <input type="checkbox" checked style="width: 18px; height: 18px; accent-color: var(--primary);">
+                        </label>
+                    </div>
+                </div>
+
+                <div class="profile-action-bar">
+                    <button type="submit" class="btn btn-primary btn-sm" style="display: inline-flex; align-items: center; gap: 0.5rem; padding: 0.65rem 1.4rem;">
+                        <i class="fa-solid fa-check"></i>
+                        <span>Save Preferences</span>
+                    </button>
+                </div>
+            </form>
+        </div>
+
+        <div class="card-panel" style="background: var(--bg-subtle);">
+            <h4 style="font-family: var(--font-heading); font-size: 1rem; font-weight: 700; color: var(--text-main); margin-bottom: 0.75rem;">
+                <i class="fa-solid fa-circle-question" style="color: var(--primary);"></i> Need Help?
+            </h4>
+            <p style="font-size: 0.85rem; color: var(--text-muted); line-height: 1.5; margin-bottom: 1rem;">
+                Looking to delete your account or change registered email? Reach out to support or export your personal data archive anytime.
+            </p>
+            <a href="mailto:support@jobsnap.ai" class="btn btn-outline btn-sm" style="width: 100%; justify-content: center; background: var(--bg-card);">
+                <i class="fa-regular fa-envelope"></i> Contact Support
+            </a>
+        </div>
+    </div>
+</div>
+
+<!-- Interactive Client-side Script -->
+<script>
+/**
+ * Switch tabs dynamically with browser history / URL hash sync
+ */
+function switchProfileTab(tabName) {
+    const validTabs = ['personal', 'security', 'career', 'preferences'];
+    if (!validTabs.includes(tabName)) {
+        tabName = 'personal';
+    }
+
+    // Hide all panes
+    validTabs.forEach(name => {
+        const pane = document.getElementById('pane-' + name);
+        const btn = document.getElementById('btn-tab-' + name);
+        if (pane) pane.style.display = 'none';
+        if (btn) {
+            btn.classList.remove('active');
+            btn.setAttribute('aria-selected', 'false');
+        }
+    });
+
+    // Show target pane
+    const targetPane = document.getElementById('pane-' + tabName);
+    const targetBtn = document.getElementById('btn-tab-' + tabName);
+    if (targetPane) targetPane.style.display = 'block';
+    if (targetBtn) {
+        targetBtn.classList.add('active');
+        targetBtn.setAttribute('aria-selected', 'true');
+    }
+
+    // Sync window hash without page jump
+    if (history.replaceState) {
+        history.replaceState(null, null, '#' + tabName);
+    } else {
+        window.location.hash = '#' + tabName;
+    }
+}
+
+/**
+ * Toggle password input field visibility between 'password' and 'text'
+ */
+function togglePasswordVisibility(inputId, triggerBtn) {
+    const input = document.getElementById(inputId);
+    if (!input) return;
+
+    const icon = triggerBtn.querySelector('i');
+    if (input.type === 'password') {
+        input.type = 'text';
+        if (icon) {
+            icon.classList.remove('fa-eye');
+            icon.classList.add('fa-eye-slash');
+        }
+        triggerBtn.setAttribute('title', 'Hide password');
+    } else {
+        input.type = 'password';
+        if (icon) {
+            icon.classList.remove('fa-eye-slash');
+            icon.classList.add('fa-eye');
+        }
+        triggerBtn.setAttribute('title', 'Show password');
+    }
+}
+
+/**
+ * Preview and sync theme immediately
+ */
+function previewTheme(themeValue) {
+    if (themeValue === 'Dark') {
+        document.documentElement.setAttribute('data-theme', 'dark');
+        localStorage.setItem('jobsnap_theme', 'dark');
+    } else {
+        document.documentElement.removeAttribute('data-theme');
+        localStorage.setItem('jobsnap_theme', 'light');
+    }
+}
+
+/**
+ * Password Strength Evaluator & Live Real-Time Validation
+ */
+(function() {
+    const currentPassInput = document.getElementById('current_password');
+    const newPassInput = document.getElementById('new_password');
+    const confirmPassInput = document.getElementById('confirm_password');
+
+    const ruleLength = document.getElementById('ruleLength');
+    const ruleUppercase = document.getElementById('ruleUppercase');
+    const ruleLowercase = document.getElementById('ruleLowercase');
+    const ruleNumberOrSymbol = document.getElementById('ruleNumberOrSymbol');
+    const ruleDifferent = document.getElementById('ruleDifferent');
+
+    const strengthLabel = document.getElementById('strengthLabel');
+    const seg1 = document.getElementById('strengthSegment1');
+    const seg2 = document.getElementById('strengthSegment2');
+    const seg3 = document.getElementById('strengthSegment3');
+    const seg4 = document.getElementById('strengthSegment4');
+
+    const matchBadge = document.getElementById('matchStatusBadge');
+    const matchIcon = document.getElementById('matchIcon');
+    const matchText = document.getElementById('matchText');
+
+    function updateRule(element, isValid) {
+        if (!element) return;
+        const icon = element.querySelector('.checklist-icon i');
+        if (isValid) {
+            element.classList.remove('invalid');
+            element.classList.add('valid');
+            if (icon) {
+                icon.className = 'fa-solid fa-circle-check';
+            }
+        } else {
+            element.classList.remove('valid');
+            element.classList.add('invalid');
+            if (icon) {
+                icon.className = 'fa-solid fa-circle-notch';
+            }
+        }
+    }
+
+    function checkPasswordStrength() {
+        const currentVal = currentPassInput ? currentPassInput.value : '';
+        const val = newPassInput ? newPassInput.value : '';
+        const confirmVal = confirmPassInput ? confirmPassInput.value : '';
+
+        if (!val) {
+            if (strengthLabel) {
+                strengthLabel.textContent = 'Empty';
+                strengthLabel.style.color = 'var(--text-muted)';
+            }
+            [seg1, seg2, seg3, seg4].forEach(s => {
+                if (s) s.style.backgroundColor = '';
+            });
+            updateRule(ruleLength, false);
+            updateRule(ruleUppercase, false);
+            updateRule(ruleLowercase, false);
+            updateRule(ruleNumberOrSymbol, false);
+            updateRule(ruleDifferent, false);
+            checkConfirmationMatch();
+            return;
+        }
+
+        const isLen = val.length >= 8;
+        const isUpper = /[A-Z]/.test(val);
+        const isLower = /[a-z]/.test(val);
+        const isNumOrSymbol = /[0-9!@#$%^&*(),.?":{}|<>]/.test(val);
+        const isDiff = !currentVal || (val !== currentVal);
+
+        updateRule(ruleLength, isLen);
+        updateRule(ruleUppercase, isUpper);
+        updateRule(ruleLowercase, isLower);
+        updateRule(ruleNumberOrSymbol, isNumOrSymbol);
+        updateRule(ruleDifferent, isDiff);
+
+        // Compute strength score (0 to 4)
+        let score = 0;
+        if (isLen) score++;
+        if (isUpper && isLower) score++;
+        if (isNumOrSymbol) score++;
+        if (val.length >= 12 && isUpper && isLower && isNumOrSymbol) score++;
+
+        // Reset segments
+        const segs = [seg1, seg2, seg3, seg4];
+        segs.forEach(s => { if (s) s.style.backgroundColor = ''; });
+
+        if (score === 1 || val.length < 8) {
+            if (strengthLabel) {
+                strengthLabel.textContent = 'Weak';
+                strengthLabel.style.color = '#ef4444';
+            }
+            if (seg1) seg1.style.backgroundColor = '#ef4444';
+        } else if (score === 2) {
+            if (strengthLabel) {
+                strengthLabel.textContent = 'Fair';
+                strengthLabel.style.color = '#f97316';
+            }
+            if (seg1) seg1.style.backgroundColor = '#f97316';
+            if (seg2) seg2.style.backgroundColor = '#f97316';
+        } else if (score === 3) {
+            if (strengthLabel) {
+                strengthLabel.textContent = 'Good';
+                strengthLabel.style.color = '#2563eb';
+            }
+            if (seg1) seg1.style.backgroundColor = '#2563eb';
+            if (seg2) seg2.style.backgroundColor = '#2563eb';
+            if (seg3) seg3.style.backgroundColor = '#2563eb';
+        } else if (score >= 4) {
+            if (strengthLabel) {
+                strengthLabel.textContent = 'Strong';
+                strengthLabel.style.color = '#10b981';
+            }
+            segs.forEach(s => { if (s) s.style.backgroundColor = '#10b981'; });
+        }
+
+        checkConfirmationMatch();
+    }
+
+    function checkConfirmationMatch() {
+        const newPass = newPassInput ? newPassInput.value : '';
+        const confirmPass = confirmPassInput ? confirmPassInput.value : '';
+
+        if (!confirmPass) {
+            if (matchBadge) matchBadge.style.display = 'none';
+            return;
+        }
+
+        if (matchBadge) matchBadge.style.display = 'inline-flex';
+
+        if (newPass === confirmPass) {
+            matchBadge.className = 'match-status-badge match';
+            if (matchIcon) matchIcon.className = 'fa-solid fa-circle-check';
+            if (matchText) matchText.textContent = 'Passwords match';
+        } else {
+            matchBadge.className = 'match-status-badge mismatch';
+            if (matchIcon) matchIcon.className = 'fa-solid fa-circle-xmark';
+            if (matchText) matchText.textContent = 'Passwords do not match';
+        }
+    }
+
+    if (newPassInput) {
+        newPassInput.addEventListener('input', checkPasswordStrength);
+    }
+    if (currentPassInput) {
+        currentPassInput.addEventListener('input', checkPasswordStrength);
+    }
+    if (confirmPassInput) {
+        confirmPassInput.addEventListener('input', checkConfirmationMatch);
+    }
+})();
+
+/**
+ * Client-Side Password Form Validator
+ */
+function validatePasswordForm(evt) {
+    const currentPass = document.getElementById('current_password').value.trim();
+    const newPass = document.getElementById('new_password').value.trim();
+    const confirmPass = document.getElementById('confirm_password').value.trim();
+    const alertBox = document.getElementById('passwordAlertBox');
+
+    function showError(msg) {
+        if (alertBox) {
+            alertBox.style.display = 'block';
+            alertBox.className = 'alert-message alert-danger';
+            alertBox.innerHTML = `<span><i class="fa-solid fa-circle-exclamation" style="margin-right: 0.5rem; color: #ef4444;"></i> ${msg}</span><i class="fa-solid fa-xmark" style="cursor: pointer;" onclick="this.parentElement.style.display='none';"></i>`;
+            alertBox.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+        }
+    }
+
+    if (!currentPass) {
+        showError('Please enter your current password.');
+        document.getElementById('current_password').focus();
+        evt.preventDefault();
+        return false;
+    }
+
+    if (!newPass) {
+        showError('Please enter a new password.');
+        document.getElementById('new_password').focus();
+        evt.preventDefault();
+        return false;
+    }
+
+    if (newPass.length < 8) {
+        showError('New password must be at least 8 characters long.');
+        document.getElementById('new_password').focus();
+        evt.preventDefault();
+        return false;
+    }
+
+    if (!/[A-Z]/.test(newPass)) {
+        showError('New password must contain at least one uppercase letter (A-Z).');
+        document.getElementById('new_password').focus();
+        evt.preventDefault();
+        return false;
+    }
+
+    if (!/[a-z]/.test(newPass)) {
+        showError('New password must contain at least one lowercase letter (a-z).');
+        document.getElementById('new_password').focus();
+        evt.preventDefault();
+        return false;
+    }
+
+    if (!/[0-9!@#$%^&*(),.?":{}|<>]/.test(newPass)) {
+        showError('New password must contain at least one number or special character.');
+        document.getElementById('new_password').focus();
+        evt.preventDefault();
+        return false;
+    }
+
+    if (currentPass === newPass) {
+        showError('New password cannot be the same as your current password.');
+        document.getElementById('new_password').focus();
+        evt.preventDefault();
+        return false;
+    }
+
+    if (newPass !== confirmPass) {
+        showError('The new password and confirmation password do not match.');
+        document.getElementById('confirm_password').focus();
+        evt.preventDefault();
+        return false;
+    }
+
+    if (alertBox) {
+        alertBox.style.display = 'none';
+    }
+    return true;
+}
+
+/**
+ * On page load, animate completion ring and check URL hash
+ */
+document.addEventListener('DOMContentLoaded', function() {
+    // 1. Check URL hash to open target tab
+    const hash = window.location.hash.replace('#', '');
+    if (['personal', 'security', 'career', 'preferences'].includes(hash)) {
+        switchProfileTab(hash);
+    }
+
+    // 2. Animate Circular Progress Ring & Percentage Count-up on Entrance
+    const ring = document.getElementById('profileRingFill');
+    const percentLabel = document.getElementById('profileRingPercent');
+    if (ring && percentLabel) {
+        const targetPct = parseInt(ring.getAttribute('data-target-pct') || '100', 10);
+        const circumference = 213.63; // 2 * Math.PI * 34
+        const targetOffset = circumference - (circumference * targetPct / 100);
+
+        // Smoothly grow the ring stroke
+        setTimeout(function() {
+            ring.style.strokeDashoffset = targetOffset;
+        }, 120);
+
+        // Smoothly count up percentage from 0 to targetPct
+        const duration = 1400; // ms
+        const startTime = performance.now();
+
+        function animatePercent(currentTime) {
+            const elapsed = currentTime - startTime;
+            const progress = Math.min(elapsed / duration, 1);
+            // Cubic ease-out curve for smooth deceleration
+            const easeOut = 1 - Math.pow(1 - progress, 3);
+            const currentVal = Math.round(easeOut * targetPct);
+
+            percentLabel.textContent = currentVal + '%';
+
+            if (progress < 1) {
+                requestAnimationFrame(animatePercent);
+            } else {
+                percentLabel.textContent = targetPct + '%';
+            }
+        }
+
+        requestAnimationFrame(animatePercent);
+    }
+});
+</script>
+
+<!-- ==========================================
+     Avatar Crop & Upload Modal Dialog
+     ========================================== -->
+<div class="avatar-modal-backdrop" id="avatarModalBackdrop" onclick="handleAvatarBackdropClick(event)">
+    <div class="avatar-modal-card" role="dialog" aria-modal="true" aria-labelledby="avatarModalTitle">
+        <div class="avatar-modal-header">
+            <h3 class="avatar-modal-title" id="avatarModalTitle">
+                <i class="fa-solid fa-camera" style="color: var(--primary);"></i>
+                <span>Update Profile Picture</span>
+            </h3>
+            <button type="button" class="avatar-modal-close-btn" onclick="closeAvatarModal()" aria-label="Close dialog">
+                <i class="fa-solid fa-xmark"></i>
+            </button>
+        </div>
+
+        <div class="avatar-modal-body">
+            <!-- Modal Alert Box -->
+            <div id="avatarModalAlert" class="alert-message alert-danger" style="display: none;">
+                <span id="avatarModalAlertText"></span>
+            </div>
+
+            <!-- Dropzone / Picker -->
+            <div class="avatar-dropzone" id="avatarDropzone" onclick="document.getElementById('avatarFileInput').click()">
+                <input type="file" id="avatarFileInput" accept="image/png, image/jpeg, image/jpg, image/webp" style="display: none;" onchange="handleAvatarFileSelect(event)">
+                <div style="font-size: 2.2rem; color: var(--primary); margin-bottom: 0.5rem;">
+                    <i class="fa-solid fa-cloud-arrow-up"></i>
+                </div>
+                <div style="font-weight: 700; color: var(--text-main); font-size: 1rem; margin-bottom: 0.25rem;">
+                    Click to browse or drag & drop image
+                </div>
+                <div style="font-size: 0.82rem; color: var(--text-muted);">
+                    Supports JPG, JPEG, PNG, WEBP (Maximum 5MB)
+                </div>
+            </div>
+
+            <!-- Interactive Cropper & Preview Workspace (Visible once image loaded) -->
+            <div class="avatar-crop-stage" id="avatarCropStage" style="display: none;">
+                <div class="avatar-canvas-wrapper" id="avatarCanvasWrapper">
+                    <canvas id="avatarCropCanvas" width="300" height="300"></canvas>
+                </div>
+
+                <div style="font-size: 0.8rem; color: var(--text-muted); text-align: center;">
+                    <i class="fa-solid fa-hand-pointer" style="margin-right: 0.3rem;"></i> Drag image to reposition inside circular frame
+                </div>
+
+                <!-- Zoom Slider and Reset Controls -->
+                <div class="avatar-crop-controls">
+                    <button type="button" class="btn btn-sm" onclick="adjustZoom(-0.1)" title="Zoom Out" style="background: none; border: none; padding: 0.2rem 0.4rem; cursor: pointer; color: var(--text-main);">
+                        <i class="fa-solid fa-magnifying-glass-minus"></i>
+                    </button>
+                    <input type="range" id="avatarZoomSlider" class="avatar-zoom-slider" min="0.5" max="3" step="0.02" value="1" oninput="handleZoomInput(this.value)">
+                    <button type="button" class="btn btn-sm" onclick="adjustZoom(0.1)" title="Zoom In" style="background: none; border: none; padding: 0.2rem 0.4rem; cursor: pointer; color: var(--text-main);">
+                        <i class="fa-solid fa-magnifying-glass-plus"></i>
+                    </button>
+                    <span id="avatarZoomLabel" style="font-size: 0.78rem; font-weight: 700; color: var(--text-muted); min-width: 36px;">100%</span>
+                    <button type="button" class="btn btn-outline btn-sm" onclick="resetCropPosition()" title="Reset to Center" style="padding: 0.2rem 0.55rem; font-size: 0.75rem; border-radius: 999px;">
+                        <i class="fa-solid fa-arrows-rotate"></i> Reset
+                    </button>
+                </div>
+
+                <!-- Live Circular Previews -->
+                <div class="avatar-preview-row">
+                    <div style="display: flex; align-items: center; gap: 0.75rem;">
+                        <canvas id="avatarPreviewLarge" class="avatar-preview-circle-lg" width="60" height="60"></canvas>
+                        <div style="font-size: 0.78rem; color: var(--text-muted);">
+                            <strong style="color: var(--text-main); display: block;">Profile View</strong>
+                            60 × 60 circular
+                        </div>
+                    </div>
+                    <div style="display: flex; align-items: center; gap: 0.75rem;">
+                        <canvas id="avatarPreviewSmall" class="avatar-preview-circle-sm" width="34" height="34"></canvas>
+                        <div style="font-size: 0.78rem; color: var(--text-muted);">
+                            <strong style="color: var(--text-main); display: block;">Topbar View</strong>
+                            34 × 34 badge
+                        </div>
+                    </div>
+                </div>
+
+                <div>
+                    <button type="button" class="btn btn-outline btn-sm" onclick="document.getElementById('avatarFileInput').click()" style="font-size: 0.8rem;">
+                        <i class="fa-solid fa-repeat"></i> Choose a different image
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <div class="avatar-modal-footer">
+            <button type="button" class="btn btn-outline btn-sm" onclick="closeAvatarModal()">Cancel</button>
+            <button type="button" class="btn btn-primary btn-sm" id="btnSaveAvatar" onclick="saveCroppedAvatar()" disabled>
+                <i class="fa-solid fa-check"></i> Save Profile Picture
+            </button>
+        </div>
+    </div>
+</div>
+
+<!-- Hidden Form for Avatar Submission -->
+<form id="avatarUploadForm" method="POST" action="{{ url_for('main.profile') }}#personal" style="display: none;">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+    <input type="hidden" name="action" value="upload_avatar">
+    <input type="hidden" name="avatar_cropped_data" id="avatarCroppedData">
+</form>
+
+<script>
+/**
+ * Interactive Profile Picture Modal & Canvas Cropper Logic
+ */
+let rawImage = null;
+let baseScale = 1.0;
+let zoomFactor = 1.0;
+let offsetX = 0;
+let offsetY = 0;
+let isDragging = false;
+let startX = 0;
+let startY = 0;
+let origOffsetX = 0;
+let origOffsetY = 0;
+
+function openAvatarModal() {
+    const backdrop = document.getElementById('avatarModalBackdrop');
+    if (backdrop) {
+        backdrop.classList.add('active');
+        hideAvatarModalError();
+    }
+}
+
+function closeAvatarModal() {
+    const backdrop = document.getElementById('avatarModalBackdrop');
+    if (backdrop) {
+        backdrop.classList.remove('active');
+    }
+}
+
+function handleAvatarBackdropClick(event) {
+    if (event.target === document.getElementById('avatarModalBackdrop')) {
+        closeAvatarModal();
+    }
+}
+
+function showAvatarModalError(msg) {
+    const box = document.getElementById('avatarModalAlert');
+    const txt = document.getElementById('avatarModalAlertText');
+    if (box && txt) {
+        txt.textContent = msg;
+        box.style.display = 'block';
+    }
+}
+
+function hideAvatarModalError() {
+    const box = document.getElementById('avatarModalAlert');
+    if (box) {
+        box.style.display = 'none';
+    }
+}
+
+function handleAvatarFileSelect(event) {
+    const files = event.target.files;
+    if (files && files.length > 0) {
+        processSelectedAvatarFile(files[0]);
+    }
+}
+
+function processSelectedAvatarFile(file) {
+    if (!file) return;
+
+    // Allowed types
+    const validTypes = ['image/jpeg', 'image/png', 'image/webp'];
+    const validExts = /\.(jpg|jpeg|png|webp)$/i;
+
+    if (!validTypes.includes(file.type.toLowerCase()) && !validExts.test(file.name)) {
+        showAvatarModalError('Invalid image format. Please select a JPG, JPEG, PNG, or WEBP photo.');
+        return;
+    }
+
+    // Maximum file size: 5 MB
+    const maxBytes = 5 * 1024 * 1024;
+    if (file.size > maxBytes) {
+        showAvatarModalError('Image size exceeds 5MB limit. Please upload a smaller photo.');
+        return;
+    }
+
+    hideAvatarModalError();
+
+    const reader = new FileReader();
+    reader.onload = function(e) {
+        rawImage = new Image();
+        rawImage.onload = function() {
+            document.getElementById('avatarDropzone').style.display = 'none';
+            document.getElementById('avatarCropStage').style.display = 'flex';
+            document.getElementById('btnSaveAvatar').disabled = false;
+
+            // Fit image into 240px circular viewport initially
+            baseScale = Math.max(240 / rawImage.naturalWidth, 240 / rawImage.naturalHeight);
+            zoomFactor = 1.0;
+            offsetX = 0;
+            offsetY = 0;
+
+            const slider = document.getElementById('avatarZoomSlider');
+            if (slider) slider.value = '1';
+            const label = document.getElementById('avatarZoomLabel');
+            if (label) label.textContent = '100%';
+
+            initCropperCanvasInteractions();
+            drawCropper();
+        };
+        rawImage.src = e.target.result;
+    };
+    reader.readAsDataURL(file);
+}
+
+function drawCropper() {
+    const canvas = document.getElementById('avatarCropCanvas');
+    if (!canvas || !rawImage) return;
+    const ctx = canvas.getContext('2d');
+
+    const effectiveScale = baseScale * zoomFactor;
+    const w = rawImage.naturalWidth * effectiveScale;
+    const h = rawImage.naturalHeight * effectiveScale;
+    const x = 150 + offsetX - (w / 2);
+    const y = 150 + offsetY - (h / 2);
+
+    ctx.clearRect(0, 0, 300, 300);
+
+    // Draw base image
+    ctx.drawImage(rawImage, x, y, w, h);
+
+    // Draw dark semi-transparent circular mask overlay
+    ctx.save();
+    ctx.fillStyle = 'rgba(15, 23, 42, 0.65)';
+    ctx.beginPath();
+    ctx.rect(0, 0, 300, 300);
+    ctx.arc(150, 150, 120, 0, Math.PI * 2, true);
+    ctx.fill();
+    ctx.restore();
+
+    // Draw circular guideline stroke
+    ctx.beginPath();
+    ctx.arc(150, 150, 120, 0, Math.PI * 2);
+    ctx.lineWidth = 2.5;
+    ctx.strokeStyle = '#ffffff';
+    ctx.stroke();
+
+    ctx.beginPath();
+    ctx.arc(150, 150, 120, 0, Math.PI * 2);
+    ctx.lineWidth = 1;
+    ctx.strokeStyle = 'rgba(26, 109, 247, 0.85)';
+    ctx.stroke();
+
+    updateAvatarPreviews();
+}
+
+function updateAvatarPreviews() {
+    if (!rawImage) return;
+    const effectiveScale = baseScale * zoomFactor;
+
+    // Helper to draw circle preview on a given canvas
+    function renderPreview(canvasId, size) {
+        const pCanvas = document.getElementById(canvasId);
+        if (!pCanvas) return;
+        const pCtx = pCanvas.getContext('2d');
+        pCtx.clearRect(0, 0, size, size);
+
+        pCtx.save();
+        pCtx.beginPath();
+        pCtx.arc(size / 2, size / 2, size / 2, 0, Math.PI * 2);
+        pCtx.clip();
+
+        const previewScale = size / 240;
+        const pw = rawImage.naturalWidth * effectiveScale * previewScale;
+        const ph = rawImage.naturalHeight * effectiveScale * previewScale;
+        const px = (size / 2) + (offsetX * previewScale) - (pw / 2);
+        const py = (size / 2) + (offsetY * previewScale) - (ph / 2);
+
+        pCtx.drawImage(rawImage, px, py, pw, ph);
+        pCtx.restore();
+    }
+
+    renderPreview('avatarPreviewLarge', 60);
+    renderPreview('avatarPreviewSmall', 34);
+}
+
+function handleZoomInput(val) {
+    zoomFactor = Math.max(0.5, Math.min(3, parseFloat(val) || 1));
+    const label = document.getElementById('avatarZoomLabel');
+    if (label) {
+        label.textContent = Math.round(zoomFactor * 100) + '%';
+    }
+    drawCropper();
+}
+
+function adjustZoom(delta) {
+    const slider = document.getElementById('avatarZoomSlider');
+    if (slider) {
+        const nextVal = Math.max(0.5, Math.min(3, parseFloat(slider.value) + delta));
+        slider.value = nextVal.toFixed(2);
+        handleZoomInput(slider.value);
+    }
+}
+
+function resetCropPosition() {
+    offsetX = 0;
+    offsetY = 0;
+    zoomFactor = 1.0;
+    const slider = document.getElementById('avatarZoomSlider');
+    if (slider) slider.value = '1';
+    const label = document.getElementById('avatarZoomLabel');
+    if (label) label.textContent = '100%';
+    drawCropper();
+}
+
+let canvasListenersAttached = false;
+function initCropperCanvasInteractions() {
+    if (canvasListenersAttached) return;
+    canvasListenersAttached = true;
+
+    const wrapper = document.getElementById('avatarCanvasWrapper');
+    if (!wrapper) return;
+
+    // Drag with mouse
+    wrapper.addEventListener('mousedown', function(e) {
+        isDragging = true;
+        startX = e.clientX;
+        startY = e.clientY;
+        origOffsetX = offsetX;
+        origOffsetY = offsetY;
+    });
+
+    window.addEventListener('mousemove', function(e) {
+        if (!isDragging) return;
+        offsetX = origOffsetX + (e.clientX - startX);
+        offsetY = origOffsetY + (e.clientY - startY);
+        drawCropper();
+    });
+
+    window.addEventListener('mouseup', function() {
+        isDragging = false;
+    });
+
+    // Touch support for mobile/tablets
+    wrapper.addEventListener('touchstart', function(e) {
+        if (e.touches.length === 1) {
+            isDragging = true;
+            startX = e.touches[0].clientX;
+            startY = e.touches[0].clientY;
+            origOffsetX = offsetX;
+            origOffsetY = offsetY;
+        }
+    }, { passive: true });
+
+    wrapper.addEventListener('touchmove', function(e) {
+        if (!isDragging || e.touches.length !== 1) return;
+        offsetX = origOffsetX + (e.touches[0].clientX - startX);
+        offsetY = origOffsetY + (e.touches[0].clientY - startY);
+        drawCropper();
+        e.preventDefault();
+    }, { passive: false });
+
+    wrapper.addEventListener('touchend', function() {
+        isDragging = false;
+    });
+
+    // Mouse wheel zoom
+    wrapper.addEventListener('wheel', function(e) {
+        e.preventDefault();
+        const delta = e.deltaY < 0 ? 0.08 : -0.08;
+        adjustZoom(delta);
+    }, { passive: false });
+
+    // Drag and drop onto dropzone
+    const dropzone = document.getElementById('avatarDropzone');
+    if (dropzone) {
+        dropzone.addEventListener('dragover', function(e) {
+            e.preventDefault();
+            dropzone.classList.add('dragover');
+        });
+        dropzone.addEventListener('dragleave', function() {
+            dropzone.classList.remove('dragover');
+        });
+        dropzone.addEventListener('drop', function(e) {
+            e.preventDefault();
+            dropzone.classList.remove('dragover');
+            if (e.dataTransfer.files && e.dataTransfer.files.length > 0) {
+                processSelectedAvatarFile(e.dataTransfer.files[0]);
+            }
+        });
+    }
+}
+
+function saveCroppedAvatar() {
+    if (!rawImage) return;
+
+    // Create 400x400 export canvas for high-DPI crisp avatar
+    const offscreen = document.createElement('canvas');
+    offscreen.width = 400;
+    offscreen.height = 400;
+    const offCtx = offscreen.getContext('2d');
+
+    const exportScale = 400 / 240;
+    const effectiveScale = baseScale * zoomFactor * exportScale;
+    const w = rawImage.naturalWidth * effectiveScale;
+    const h = rawImage.naturalHeight * effectiveScale;
+    const x = 200 + (offsetX * exportScale) - (w / 2);
+    const y = 200 + (offsetY * exportScale) - (h / 2);
+
+    offCtx.drawImage(rawImage, x, y, w, h);
+
+    const dataUrl = offscreen.toDataURL('image/png', 0.95);
+    const hiddenInput = document.getElementById('avatarCroppedData');
+    if (hiddenInput) {
+        hiddenInput.value = dataUrl;
+    }
+
+    const saveBtn = document.getElementById('btnSaveAvatar');
+    if (saveBtn) {
+        saveBtn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Saving...';
+        saveBtn.disabled = true;
+    }
+
+    document.getElementById('avatarUploadForm').submit();
+}
+</script>
+{% endblock %}
