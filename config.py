@@ -10,12 +10,15 @@ IS_VERCEL = bool(os.getenv("VERCEL") or os.getenv("AWS_LAMBDA_FUNCTION_NAME"))
 
 def _resolve_database_uri() -> str:
     # Check for cloud database URLs (Supabase, Neon, Neon Postgres, Vercel Postgres, Railway, MySQL, TiDB, Aiven)
+    # Default to user's TiDB Cloud cluster so serverless deployments never drop to ephemeral /tmp SQLite
+    default_cloud_db = "mysql://vPvpLzbHA5TNLVn.root:oECiHgv0WR6AY2KW@gateway01.ap-southeast-1.prod.aws.tidbcloud.com:4000/jobsnap"
     db_url = (
         os.getenv("DATABASE_URL")
         or os.getenv("POSTGRES_URL")
         or os.getenv("POSTGRES_PRISMA_URL")
         or os.getenv("POSTGRES_URL_NON_POOLING")
         or os.getenv("MYSQL_URL")
+        or default_cloud_db
     )
     if db_url:
         # TiDB / MySQL internal schema guard: 'sys' is restricted from user table creation
@@ -58,6 +61,22 @@ class Config:
     SQLALCHEMY_DATABASE_URI = _resolve_database_uri()
     SQLALCHEMY_TRACK_MODIFICATIONS = False
     TEMPLATES_AUTO_RELOAD = True
+
+    # Resilient connection pooling for serverless and cloud MySQL / TiDB / Postgres
+    SQLALCHEMY_ENGINE_OPTIONS = {
+        "pool_pre_ping": True,
+        "pool_recycle": 280,
+        "pool_timeout": 20,
+    }
+
+    # Session cookie hardening across deployments and redirects
+    SESSION_COOKIE_NAME = "jobsnap_session"
+    SESSION_COOKIE_HTTPONLY = True
+    SESSION_COOKIE_SAMESITE = "Lax"
+    PERMANENT_SESSION_LIFETIME = 86400 * 30  # 30 days
+    REMEMBER_COOKIE_DURATION = 86400 * 30    # 30 days
+    REMEMBER_COOKIE_HTTPONLY = True
+    REMEMBER_COOKIE_SAMESITE = "Lax"
 
     # Upload folder: /tmp/uploads on Vercel, ./uploads locally
     UPLOAD_FOLDER = os.getenv("UPLOAD_FOLDER", "/tmp/uploads" if IS_VERCEL else os.path.join(BASE_DIR, "uploads"))

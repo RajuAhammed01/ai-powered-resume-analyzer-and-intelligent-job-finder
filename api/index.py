@@ -6,17 +6,23 @@ ROOT_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 if ROOT_DIR not in sys.path:
     sys.path.insert(0, ROOT_DIR)
 
+from werkzeug.middleware.proxy_fix import ProxyFix
 from run import app
 
 
 class VercelPathMiddleware:
-    """WSGI middleware ensuring correct PATH_INFO when invoked through Vercel serverless."""
+    """WSGI middleware ensuring correct PATH_INFO and HTTPS scheme when invoked through Vercel serverless."""
 
     def __init__(self, wsgi_app):
         self.wsgi_app = wsgi_app
 
     def __call__(self, environ, start_response):
-        # 1. Recover true client URL from Vercel edge proxy headers if present
+        # 1. Ensure https scheme is reflected in serverless requests
+        proto = environ.get("HTTP_X_FORWARDED_PROTO", "https")
+        if proto:
+            environ["wsgi.url_scheme"] = proto
+
+        # 2. Recover true client URL from Vercel edge proxy headers if present
         matched_path = (
             environ.get("HTTP_X_MATCHED_PATH")
             or environ.get("HTTP_X_FORWARDED_URI")
@@ -27,12 +33,13 @@ class VercelPathMiddleware:
             if clean_path and clean_path not in ("/api/index", "/api/index.py"):
                 environ["PATH_INFO"] = clean_path
 
-        # 2. Map /api/index root hits to /
+        # 3. Map /api/index root hits to /
         if environ.get("PATH_INFO") in ("/api/index", "/api/index.py"):
             environ["PATH_INFO"] = "/"
 
         return self.wsgi_app(environ, start_response)
 
 
-# Attach WSGI middleware and export callable for Vercel
+# Attach ProxyFix for reverse proxy header accuracy and WSGI middleware for Vercel
+app.wsgi_app = ProxyFix(app.wsgi_app, x_for=1, x_proto=1, x_host=1, x_prefix=1)
 app.wsgi_app = VercelPathMiddleware(app.wsgi_app)

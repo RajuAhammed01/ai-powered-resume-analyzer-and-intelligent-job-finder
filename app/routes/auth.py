@@ -54,8 +54,12 @@ def register():
             failure_reason="Account registration created",
         )
 
-        flash("Registered successfully! Your account details and secure hash have been stored. Please login.")
-        return redirect(url_for("auth.login"))
+        login_user(user, remember=True)
+        from flask import session
+        session.permanent = True
+
+        flash("Account created successfully! Welcome to JobSnap.")
+        return redirect(url_for("main.dashboard"))
 
     return render_template("auth/register.html", is_auth_page=True)
 
@@ -90,7 +94,13 @@ def login():
                 user=user,
                 failure_reason="",
             )
-            login_user(user, remember=remember)
+            login_user(user, remember=True)
+            from flask import session
+            session.permanent = True
+
+            next_page = request.args.get("next")
+            if next_page and next_page.startswith("/") and not next_page.startswith("//"):
+                return redirect(next_page)
             return redirect(url_for("main.dashboard"))
 
         # Record failed login attempt in dataset for security auditing
