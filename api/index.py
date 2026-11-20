@@ -26,16 +26,25 @@ class VercelPathMiddleware:
         environ["SCRIPT_NAME"] = ""
 
         # 3. Recover true client URL:
-        # Check __vercel_path query param first (reliably injected by vercel.json rewrite)
+        # Check query string params (injected by Vercel rewrite with /:path* or ?__vercel_path=)
         qs = environ.get("QUERY_STRING", "")
         client_path = None
-        if "__vercel_path=" in qs:
+
+        if qs and ("path=" in qs or "__vercel_path=" in qs):
             params = urllib.parse.parse_qs(qs)
+            
+            # Check __vercel_path first
             if "__vercel_path" in params and params["__vercel_path"]:
                 client_path = params["__vercel_path"][0]
-                # Strip internal __vercel_path from QUERY_STRING so application query params remain clean
-                cleaned_params = {k: v for k, v in params.items() if k != "__vercel_path"}
-                environ["QUERY_STRING"] = urllib.parse.urlencode(cleaned_params, doseq=True)
+            # Check path parameter injected by /:path* rewrite rule
+            elif "path" in params and params["path"]:
+                client_path = "/" + params["path"][0].lstrip("/")
+
+            # Strip routing parameters from QUERY_STRING so application code sees clean query parameters
+            cleaned_params = {
+                k: v for k, v in params.items() if k not in ("path", "__vercel_path")
+            }
+            environ["QUERY_STRING"] = urllib.parse.urlencode(cleaned_params, doseq=True)
 
         # 4. Fallback: check headers if query param was not injected
         if not client_path:
@@ -67,12 +76,11 @@ class VercelPathMiddleware:
             if not client_path.startswith("/"):
                 client_path = "/" + client_path
             environ["PATH_INFO"] = client_path
-        elif environ.get("PATH_INFO") in ("/api/index", "/api/index.py"):
+        elif environ.get("PATH_INFO") in ("/api/index", "/api/index.py", "", None):
             environ["PATH_INFO"] = "/"
 
         return self.wsgi_app(environ, start_response)
 
 
 # Attach WSGI middleware for Vercel serverless request handling
-# (Note: ProxyFix is already cleanly attached in run.py)
 app.wsgi_app = VercelPathMiddleware(app.wsgi_app)
