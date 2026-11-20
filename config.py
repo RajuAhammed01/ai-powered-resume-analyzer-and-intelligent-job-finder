@@ -1,6 +1,7 @@
 import os
 import pathlib
 from dotenv import load_dotenv
+from sqlalchemy.pool import NullPool
 
 load_dotenv()
 
@@ -62,23 +63,35 @@ class Config:
     SQLALCHEMY_TRACK_MODIFICATIONS = False
     TEMPLATES_AUTO_RELOAD = True
 
-    # Resilient connection pooling for serverless and cloud MySQL / TiDB / Postgres
-    SQLALCHEMY_ENGINE_OPTIONS = {
-        "pool_pre_ping": True,
-        "pool_recycle": 280,
-        "pool_timeout": 20,
-        "pool_size": 10,
-        "max_overflow": 20,
-    }
+    # Use NullPool on serverless/Vercel to prevent stale connection reuse across frozen lambdas
+    if IS_VERCEL:
+        SQLALCHEMY_ENGINE_OPTIONS = {
+            "poolclass": NullPool,
+        }
+    else:
+        SQLALCHEMY_ENGINE_OPTIONS = {
+            "pool_pre_ping": True,
+            "pool_recycle": 280,
+            "pool_timeout": 20,
+            "pool_size": 10,
+            "max_overflow": 20,
+        }
 
     # Session cookie hardening across deployments and redirects
     SESSION_COOKIE_NAME = "jobsnap_session"
+    SESSION_COOKIE_PATH = "/"
     SESSION_COOKIE_HTTPONLY = True
     SESSION_COOKIE_SAMESITE = "Lax"
+    SESSION_COOKIE_SECURE = False  # False ensures cookie passes cleanly through reverse proxies
     PERMANENT_SESSION_LIFETIME = 86400 * 30  # 30 days
+
+    # Remember Me cookie hardening
+    REMEMBER_COOKIE_NAME = "jobsnap_remember"
+    REMEMBER_COOKIE_PATH = "/"
     REMEMBER_COOKIE_DURATION = 86400 * 30    # 30 days
     REMEMBER_COOKIE_HTTPONLY = True
     REMEMBER_COOKIE_SAMESITE = "Lax"
+    REMEMBER_COOKIE_SECURE = False
 
     # Upload folder: /tmp/uploads on Vercel, ./uploads locally
     UPLOAD_FOLDER = os.getenv("UPLOAD_FOLDER", "/tmp/uploads" if IS_VERCEL else os.path.join(BASE_DIR, "uploads"))

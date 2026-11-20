@@ -220,11 +220,18 @@ class SavedJob(db.Model):
 
 @login_manager.user_loader
 def load_user(user_id):
+    if not user_id:
+        return None
     try:
-        return db.session.get(User, int(user_id))
+        uid = int(user_id)
+    except (ValueError, TypeError):
+        return None
+
+    try:
+        return db.session.get(User, uid)
     except Exception:
         try:
             db.session.rollback()
-            return db.session.get(User, int(user_id))
+            return db.session.get(User, uid)
         except Exception:
             return None

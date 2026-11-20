@@ -11,7 +11,7 @@ from run import app
 
 
 class VercelPathMiddleware:
-    """WSGI middleware ensuring correct PATH_INFO and HTTPS scheme when invoked through Vercel serverless."""
+    """WSGI middleware ensuring correct PATH_INFO, SCRIPT_NAME, and HTTPS scheme when invoked through Vercel serverless."""
 
     def __init__(self, wsgi_app):
         self.wsgi_app = wsgi_app
@@ -22,7 +22,10 @@ class VercelPathMiddleware:
         if proto:
             environ["wsgi.url_scheme"] = proto
 
-        # 2. Recover true client URL from Vercel edge proxy headers if present
+        # 2. Reset SCRIPT_NAME to empty string so cookie path and url_for() are always root-relative
+        environ["SCRIPT_NAME"] = ""
+
+        # 3. Recover true client URL from Vercel edge proxy headers if present
         matched_path = (
             environ.get("HTTP_X_MATCHED_PATH")
             or environ.get("HTTP_X_FORWARDED_URI")
@@ -33,7 +36,7 @@ class VercelPathMiddleware:
             if clean_path and clean_path not in ("/api/index", "/api/index.py"):
                 environ["PATH_INFO"] = clean_path
 
-        # 3. Map /api/index root hits to /
+        # 4. Map /api/index root hits to /
         if environ.get("PATH_INFO") in ("/api/index", "/api/index.py"):
             environ["PATH_INFO"] = "/"
 

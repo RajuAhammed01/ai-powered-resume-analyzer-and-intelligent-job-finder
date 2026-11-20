@@ -11,9 +11,11 @@ except Exception:
     pass
 
 from app import create_app
+from werkzeug.middleware.proxy_fix import ProxyFix
 
 # Vercel and WSGI entry point: exposes Flask application as 'app'
 app = create_app()
+app.wsgi_app = ProxyFix(app.wsgi_app, x_for=1, x_proto=1, x_host=1, x_prefix=1)
 
 if __name__ == "__main__":
     # Support dynamic PORT and HOST to prevent port collisions
