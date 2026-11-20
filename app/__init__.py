@@ -14,6 +14,17 @@ csrf = CSRFProtect()
 def create_app(test_config=None):
     app = Flask(__name__)
     app.config.from_object(Config)
+
+    # Dynamically enforce cookie security on Vercel (HTTPS) and production environments
+    # while allowing plain HTTP (127.0.0.1) locally without SSL warnings or cookie drops
+    cookie_secure = (
+        bool(os.getenv("VERCEL"))
+        or os.getenv("FLASK_ENV") == "production"
+        or os.getenv("SESSION_COOKIE_SECURE", "false").lower() in ("true", "1")
+    )
+    app.config["SESSION_COOKIE_SECURE"] = cookie_secure
+    app.config["REMEMBER_COOKIE_SECURE"] = cookie_secure
+
     if test_config:
         app.config.update(test_config)
     try:

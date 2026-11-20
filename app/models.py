@@ -234,6 +234,9 @@ def load_user(user_id):
     except Exception:
         try:
             db.session.rollback()
+            db.session.remove()
             return db.session.get(User, uid)
-        except Exception:
+        except Exception as retry_exc:
+            import logging
+            logging.getLogger(__name__).warning("load_user failed for uid %s: %s", uid, retry_exc)
             return None

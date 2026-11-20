@@ -43,6 +43,6 @@ class VercelPathMiddleware:
         return self.wsgi_app(environ, start_response)
 
 
-# Attach ProxyFix for reverse proxy header accuracy and WSGI middleware for Vercel
-app.wsgi_app = ProxyFix(app.wsgi_app, x_for=1, x_proto=1, x_host=1, x_prefix=1)
+# Attach WSGI middleware for Vercel serverless request handling
+# (Note: ProxyFix is already cleanly attached in run.py)
 app.wsgi_app = VercelPathMiddleware(app.wsgi_app)

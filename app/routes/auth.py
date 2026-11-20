@@ -54,12 +54,15 @@ def register():
             failure_reason="Account registration created",
         )
 
-        login_user(user, remember=True)
+        login_user(user, remember=False)
         from flask import session
         session.permanent = True
 
         flash("Account created successfully! Welcome to JobSnap.")
-        return redirect(url_for("main.dashboard"))
+        response = redirect(url_for("main.dashboard"))
+        response.headers["Cache-Control"] = "no-cache, no-store, must-revalidate, max-age=0"
+        response.headers["Pragma"] = "no-cache"
+        return response
 
     return render_template("auth/register.html", is_auth_page=True)
 
@@ -94,14 +97,16 @@ def login():
                 user=user,
                 failure_reason="",
             )
-            login_user(user, remember=True)
+            login_user(user, remember=remember)
             from flask import session
             session.permanent = True
 
             next_page = request.args.get("next")
-            if next_page and next_page.startswith("/") and not next_page.startswith("//"):
-                return redirect(next_page)
-            return redirect(url_for("main.dashboard"))
+            redirect_target = next_page if (next_page and next_page.startswith("/") and not next_page.startswith("//")) else url_for("main.dashboard")
+            response = redirect(redirect_target)
+            response.headers["Cache-Control"] = "no-cache, no-store, must-revalidate, max-age=0"
+            response.headers["Pragma"] = "no-cache"
+            return response
 
         # Record failed login attempt in dataset for security auditing
         reason = "Invalid password" if user else "Account not registered"

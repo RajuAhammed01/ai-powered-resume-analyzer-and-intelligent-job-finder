@@ -60,8 +60,8 @@ def serve_avatar(filename):
 USER_DASHBOARD_CACHE = {}
 
 
-@main_bp.route("/")
 @main_bp.route("/api/index")
+@main_bp.route("/")
 def index():
     return render_template("index.html")
 

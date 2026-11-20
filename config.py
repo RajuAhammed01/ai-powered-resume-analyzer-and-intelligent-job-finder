@@ -77,13 +77,22 @@ class Config:
             "max_overflow": 20,
         }
 
+    # Dynamic secure cookie setting:
+    # On Vercel (HTTPS) or production, cookies MUST have Secure=True so modern browsers
+    # (and Public Suffix List rules for vercel.app) accept and persist them across redirects.
+    # On local HTTP (127.0.0.1), Secure remains False.
+    COOKIE_SECURE = IS_VERCEL or os.getenv("FLASK_ENV") == "production" or os.getenv("SESSION_COOKIE_SECURE", "false").lower() in ("true", "1")
+
     # Session cookie hardening across deployments and redirects
     SESSION_COOKIE_NAME = "jobsnap_session"
     SESSION_COOKIE_PATH = "/"
     SESSION_COOKIE_HTTPONLY = True
     SESSION_COOKIE_SAMESITE = "Lax"
-    SESSION_COOKIE_SECURE = False  # False ensures cookie passes cleanly through reverse proxies
+    SESSION_COOKIE_SECURE = COOKIE_SECURE
     PERMANENT_SESSION_LIFETIME = 86400 * 30  # 30 days
+
+    # Prevent CSRF referer check failures behind Vercel edge proxies while keeping CSRF token verification active
+    WTF_CSRF_SSL_STRICT = False
 
     # Remember Me cookie hardening
     REMEMBER_COOKIE_NAME = "jobsnap_remember"
@@ -91,7 +100,7 @@ class Config:
     REMEMBER_COOKIE_DURATION = 86400 * 30    # 30 days
     REMEMBER_COOKIE_HTTPONLY = True
     REMEMBER_COOKIE_SAMESITE = "Lax"
-    REMEMBER_COOKIE_SECURE = False
+    REMEMBER_COOKIE_SECURE = COOKIE_SECURE
 
     # Upload folder: /tmp/uploads on Vercel, ./uploads locally
     UPLOAD_FOLDER = os.getenv("UPLOAD_FOLDER", "/tmp/uploads" if IS_VERCEL else os.path.join(BASE_DIR, "uploads"))
