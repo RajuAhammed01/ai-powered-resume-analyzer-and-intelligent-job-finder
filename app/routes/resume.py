@@ -69,6 +69,8 @@ def upload():
                 current_user.phone = structure["phone"]
             if structure.get("location") and not current_user.location:
                 current_user.location = structure["location"]
+            if structure.get("country"):
+                current_user.country = structure["country"]
             if structure.get("linkedin_url") and not current_user.linkedin_url:
                 current_user.linkedin_url = structure["linkedin_url"]
             if not current_user.title_role or current_user.title_role in ["Job Seeker", "Software Engineer"]:
@@ -78,12 +80,14 @@ def upload():
             if structure.get("name") and (not current_user.name or current_user.name == "User"):
                 current_user.name = structure["name"]
 
-            # Sync JobPreference target_role and location with actual career profile
+            # Sync JobPreference target_role, location and country with actual career profile
             pref = JobPreference.query.filter_by(user_id=current_user.id).first()
             if not pref:
                 pref = JobPreference(user_id=current_user.id)
                 db.session.add(pref)
             pref.target_role = recommended_role
+            if structure.get("country"):
+                pref.country = structure["country"]
             if structure.get("location") and (not pref.location or pref.location == "Remote"):
                 pref.location = structure["location"]
 

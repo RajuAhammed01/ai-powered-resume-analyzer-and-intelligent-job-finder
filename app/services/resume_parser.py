@@ -152,6 +152,7 @@ def extract_structure(text: str, filepath: str = None) -> dict:
             "name": "",
             "title_role": "",
             "location": "",
+            "country": "",
             "phone": "",
             "email": "",
             "linkedin_url": "",
@@ -279,10 +280,29 @@ def extract_structure(text: str, filepath: str = None) -> dict:
     if experience:
         score += min(30, max(15, len(experience) * 4))
 
+    # Automatic Intelligent Detection for Candidate Country (Bangladesh & Global)
+    candidate_country = ""
+    try:
+        from app.services.bd_job_scraper import is_bangladesh_resume_or_location
+        if is_bangladesh_resume_or_location(
+            text=text,
+            location_val=candidate_location,
+            phone_val=primary_phone,
+            education_val="\n".join(education),
+        ):
+            candidate_country = "Bangladesh"
+            if not candidate_location or candidate_location.lower() in ["remote", "worldwide"]:
+                candidate_location = "Dhaka, Bangladesh"
+            elif "bangladesh" not in candidate_location.lower():
+                candidate_location = f"{candidate_location}, Bangladesh"
+    except Exception as e:
+        pass
+
     return {
         "name": candidate_name,
         "title_role": candidate_role,
         "location": candidate_location,
+        "country": candidate_country,
         "phone": primary_phone,
         "email": primary_email,
         "linkedin_url": primary_linkedin,

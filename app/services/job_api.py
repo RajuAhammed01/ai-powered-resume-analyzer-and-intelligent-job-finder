@@ -19,6 +19,10 @@ from app.services.job_scraper import (
     scrape_remoteok,
     scrape_jobicy,
 )
+from app.services.bd_job_scraper import (
+    fetch_bangladesh_jobs,
+    is_bangladesh_resume_or_location,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -155,18 +159,32 @@ def fetch_jsearch_jobs(role: str, location: str, limit: int = 15) -> list[dict]:
     return jobs
 
 
-def fetch_jobs(role: str = "", location: str = "Remote", source: str = "all") -> list[dict]:
+def fetch_jobs(
+    role: str = "",
+    location: str = "Remote",
+    source: str = "all",
+    country: str = "all",
+    company_filter: str = "all",
+) -> list[dict]:
     """
-    Real-Time Job Search Engine Orchestrator with Instant Fallback.
+    Real-Time Job Search Engine Orchestrator with Instant Fallback & Bangladesh Live Support.
     Fetches authentic verified job opportunities with direct apply links.
-    Utilizes pre-verified seed cache for instant sub-50ms responses, backed by
-    multi-source real-time web scrapers.
+    If country is Bangladesh or candidate indicates Bangladesh, prioritizes live scraped
+    and verified tech jobs from the 41 premier Bangladeshi technology companies.
     """
     clean_role = (role or "Software Engineer").strip()
     clean_loc = (location or "Remote").strip()
     clean_source = (source or "all").lower().strip()
+    clean_country = (country or "all").lower().strip()
+    clean_comp = (company_filter or "all").strip()
 
-    cache_key = f"{clean_role}_{clean_loc}_{clean_source}".lower()
+    is_bd_requested = (
+        clean_country in ["bangladesh", "bd"]
+        or is_bangladesh_resume_or_location(location_val=clean_loc)
+        or (clean_comp and clean_comp.lower() != "all")
+    )
+
+    cache_key = f"{clean_role}_{clean_loc}_{clean_source}_{clean_country}_{clean_comp}".lower()
 
     # 1. In-memory cache check (1 hour TTL)
     if cache_key in _CACHE:
@@ -176,7 +194,34 @@ def fetch_jobs(role: str = "", location: str = "Remote", source: str = "all") ->
 
     raw_jobs = []
 
-    # 2. Query Real-Time Web Providers for authentic live jobs with active direct application links
+    # 2. If Bangladesh is targeted, query live web scraper and verified registry for Bangladesh tech leaders
+    if is_bd_requested:
+        bd_jobs = fetch_bangladesh_jobs(role=clean_role, company_filter=clean_comp, limit=45)
+        raw_jobs.extend(bd_jobs)
+        # If user explicitly selected Bangladesh or specific BD company, return exclusively Bangladesh results
+        if clean_country in ["bangladesh", "bd"] or (clean_comp and clean_comp.lower() != "all"):
+            # Deduplicate and register
+            final_bd = []
+            seen_bd = set()
+            for job in raw_jobs:
+                title = job.get("job_title", "").strip()
+                comp = (job.get("employer_name") or job.get("company", "")).strip()
+                raw_url = normalize_apply_url(job.get("job_apply_link", ""))
+                if not raw_url or not title:
+                    continue
+                job["job_apply_link"] = raw_url
+                if not job.get("job_id"):
+                    job["job_id"] = generate_job_id(job)
+                GLOBAL_JOBS_REGISTRY[job["job_id"]] = job
+                key = (title.lower(), comp.lower())
+                if key not in seen_bd:
+                    seen_bd.add(key)
+                    final_bd.append(job)
+            if final_bd:
+                _CACHE[cache_key] = (final_bd, time.time())
+            return final_bd
+
+    # 3. Query Real-Time Web Providers for authentic live jobs with active direct application links
     live_scraped = []
     try:
         if clean_source == "remotive":

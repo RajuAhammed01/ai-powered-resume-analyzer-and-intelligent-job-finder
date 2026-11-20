@@ -25,6 +25,7 @@ def preferences():
             pref.target_role = "Machine Learning Engineer, Data Scientist"
             pref.location_preference = "Any Location"
             pref.location = "Remote"
+            pref.country = "All"
             pref.experience_level = "Entry Level (0-1 years)"
             pref.expected_salary = "Any"
             pref.job_type = "Full-time"
@@ -36,6 +37,7 @@ def preferences():
         pref.target_role = request.form.get("target_role", "Machine Learning Engineer, Data Scientist").strip()
         pref.location_preference = request.form.get("location_preference", "Any Location")
         pref.location = request.form.get("location", "Remote").strip()
+        pref.country = request.form.get("country", pref.country or "All").strip()
         pref.experience_level = request.form.get("experience_level", "Entry Level (0-1 years)")
         pref.expected_salary = request.form.get("expected_salary", "Any")
         pref.job_type = request.form.get("job_type", "Full-time")

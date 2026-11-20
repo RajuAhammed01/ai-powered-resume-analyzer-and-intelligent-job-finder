@@ -121,7 +121,16 @@ def dashboard():
 
             location = (pref.location if pref else None) or "Remote"
 
-            raw_jobs = fetch_jobs(target_role, location)
+            from app.services.bd_job_scraper import is_bangladesh_resume_or_location
+            is_bd_candidate = is_bangladesh_resume_or_location(
+                text=resume_text,
+                location_val=((pref.location if pref else '') or '') + ' ' + (current_user.location or ''),
+                phone_val=current_user.phone or '',
+                education_val=resume.education or '',
+            ) or (pref and pref.country and pref.country.lower() in ['bangladesh', 'bd'])
+            target_country = "bangladesh" if is_bd_candidate else "all"
+
+            raw_jobs = fetch_jobs(target_role, location, country=target_country)
             processed_jobs = []
             # Process up to 15 prioritized jobs for ultra-fast dashboard generation
             for index, job_item in enumerate(raw_jobs[:15]):

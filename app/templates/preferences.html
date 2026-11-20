@@ -37,7 +37,26 @@
                 <input type="text" name="target_role" class="input-control" style="padding-left: 1rem;" value="{{ pref.target_role if pref else 'Machine Learning Engineer, Data Scientist' }}" placeholder="e.g. Machine Learning Engineer, Data Scientist" required>
             </div>
 
-            <!-- 2. Location Preference -->
+            <!-- 2. Country / Regional Focus -->
+            <div style="margin-bottom: 2rem;">
+                <label class="form-label" style="font-size: 1rem;">
+                    <i class="fa-solid fa-earth-americas" style="color: #059669; margin-right: 0.4rem;"></i> Country / Target Region
+                </label>
+                <div style="font-size: 0.82rem; color: var(--text-muted); margin-bottom: 0.75rem;">
+                    Filter opportunities by country. Selecting <strong>Bangladesh</strong> activates live-scraped jobs from Bangladesh's 41 premier technology & engineering companies.
+                </div>
+
+                <select name="country" class="input-control" style="padding-left: 1rem; font-weight: 600;">
+                    <option value="All" {% if not pref or pref.country in ['All', '', None] %}selected{% endif %}>🌍 All Countries / Global Remote</option>
+                    <option value="Bangladesh" {% if pref and pref.country == 'Bangladesh' %}selected{% endif %}>🇧🇩 Bangladesh (Top 41 Tech Leaders: BJIT, Brain Station 23, Therap, Pathao, Chaldal, etc.)</option>
+                    <option value="United States" {% if pref and pref.country == 'United States' %}selected{% endif %}>🇺🇸 United States</option>
+                    <option value="United Kingdom" {% if pref and pref.country == 'United Kingdom' %}selected{% endif %}>🇬🇧 United Kingdom</option>
+                    <option value="Germany" {% if pref and pref.country == 'Germany' %}selected{% endif %}>🇩🇪 Germany</option>
+                    <option value="Canada" {% if pref and pref.country == 'Canada' %}selected{% endif %}>🇨🇦 Canada</option>
+                </select>
+            </div>
+
+            <!-- 3. Location Preference -->
             <div style="margin-bottom: 2rem;">
                 <label class="form-label" style="font-size: 1rem;">
                     <i class="fa-solid fa-location-dot" style="color: var(--primary); margin-right: 0.4rem;"></i> Location Preference
@@ -148,6 +167,11 @@
                 <div>
                     <div style="font-weight: 700; color: var(--text-main);"><i class="fa-solid fa-briefcase" style="color: var(--text-light); margin-right: 0.4rem;"></i> Job Roles</div>
                     <div style="color: var(--text-muted);">{{ pref.target_role if pref else 'Machine Learning Engineer, Data Analyst, Data Scientist' }}</div>
+                </div>
+
+                <div>
+                    <div style="font-weight: 700; color: var(--text-main);"><i class="fa-solid fa-earth-americas" style="color: var(--text-light); margin-right: 0.4rem;"></i> Target Country</div>
+                    <div style="color: var(--text-muted);">{{ pref.country if (pref and pref.country and pref.country != 'All') else 'All Countries / Global' }}</div>
                 </div>
 
                 <div>

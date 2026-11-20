@@ -33,6 +33,36 @@
     </div>
 </div>
 
+{% if is_bd_active or selected_country in ['bangladesh', 'bd'] %}
+<!-- Bangladesh Tech Hub Active Banner -->
+<div style="background: linear-gradient(135deg, #065f46 0%, #047857 50%, #0d9488 100%); color: white; border-radius: 14px; padding: 1.15rem 1.4rem; margin-bottom: 1.5rem; display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 1rem; box-shadow: 0 4px 16px rgba(4, 120, 87, 0.18);">
+    <div style="display: flex; align-items: center; gap: 1rem;">
+        <div style="width: 50px; height: 50px; border-radius: 12px; background: rgba(255,255,255,0.2); display: flex; align-items: center; justify-content: center; font-size: 1.8rem; flex-shrink: 0;">
+            🇧🇩
+        </div>
+        <div>
+            <div style="font-weight: 800; font-size: 1.15rem; display: flex; align-items: center; gap: 0.6rem; flex-wrap: wrap;">
+                Bangladesh Premier Technology Network
+                <span style="background: rgba(255,255,255,0.25); color: #ecfdf5; font-size: 0.72rem; padding: 0.2rem 0.55rem; border-radius: 20px; font-weight: 700; letter-spacing: 0.3px;">
+                    <i class="fa-solid fa-satellite-dish"></i> Live Scraped & Verified Openings
+                </span>
+            </div>
+            <div style="font-size: 0.84rem; opacity: 0.95; margin-top: 0.25rem; line-height: 1.4;">
+                Targeting <strong>41 leading Bangladeshi tech leaders</strong>: BJIT Group, Brain Station 23, Therap (BD), DSi, Enosis Solutions, Vivasoft, AppsCode, Pathao, Chaldal, SELISE, Cefalo, Samsung R&D, ULKASEMI, and more.
+            </div>
+        </div>
+    </div>
+    <div style="display: flex; gap: 0.6rem; align-items: center; flex-wrap: wrap;">
+        <span style="font-size: 0.8rem; background: rgba(0,0,0,0.15); padding: 0.35rem 0.75rem; border-radius: 8px; border: 1px solid rgba(255,255,255,0.2);">
+            <i class="fa-solid fa-building"></i> 41 Companies Active
+        </span>
+        <a href="{{ url_for('jobs.results', country='all') }}" style="background: white; color: #065f46; text-decoration: none; padding: 0.45rem 0.9rem; border-radius: 8px; font-size: 0.8rem; font-weight: 700; transition: all 0.2s ease;">
+            <i class="fa-solid fa-globe"></i> Show Worldwide Jobs
+        </a>
+    </div>
+</div>
+{% endif %}
+
 <!-- 4 Top Stat Cards -->
 <div class="stat-card-grid">
     <div class="stat-card">
@@ -105,6 +135,24 @@
                 <option value="80" {% if selected_min_score == '80' %}selected{% endif %}>80%+ High Matches</option>
                 <option value="65" {% if selected_min_score == '65' %}selected{% endif %}>65%+ Good Matches</option>
                 <option value="50" {% if selected_min_score == '50' %}selected{% endif %}>50%+ Relevant Matches</option>
+            </select>
+
+            <!-- Country Filter -->
+            <select id="filter-country" onchange="onCountryFilterChange()" class="filter-select-control" style="font-weight: 700; color: #047857;" title="Filter by Country">
+                <option value="all" {% if selected_country == 'all' %}selected{% endif %}>🌍 All Countries</option>
+                <option value="bangladesh" {% if selected_country in ['bangladesh', 'bd'] %}selected{% endif %}>🇧🇩 Bangladesh (41 Tech Leaders)</option>
+                <option value="us" {% if selected_country == 'us' %}selected{% endif %}>🇺🇸 United States</option>
+                <option value="uk" {% if selected_country == 'uk' %}selected{% endif %}>🇬🇧 United Kingdom</option>
+                <option value="germany" {% if selected_country == 'germany' %}selected{% endif %}>🇩🇪 Germany</option>
+                <option value="canada" {% if selected_country == 'canada' %}selected{% endif %}>🇨🇦 Canada</option>
+            </select>
+
+            <!-- Bangladesh Company Filter -->
+            <select id="filter-company" onchange="filterJobs()" class="filter-select-control" style="font-weight: 600; color: #1e3a8a; {% if selected_country not in ['bangladesh', 'bd'] and not is_bd_active %}display: none;{% endif %}" title="Filter by Specific Company">
+                <option value="all" {% if not selected_company or selected_company == 'all' %}selected{% endif %}>🏢 All 41 Companies</option>
+                {% for cname in all_bd_companies %}
+                <option value="{{ cname|lower }}" {% if selected_company|lower == cname|lower %}selected{% endif %}>{{ cname }}</option>
+                {% endfor %}
             </select>
 
             <!-- Location Filter -->
@@ -200,6 +248,8 @@
              data-job-index="{{ loop.index0 }}"
              onclick="selectJobPreview({{ loop.index0 }})"
              data-location="{{ (job.get('job_city') or job.get('location') or 'remote')|lower }}"
+             data-country="{{ (job.get('country') or ('bangladesh' if job.get('is_bangladesh') else 'other'))|lower }}"
+             data-is-bangladesh="{{ 'true' if job.get('is_bangladesh') else 'false' }}"
              data-type="{{ (job.get('job_employment_type') or 'full-time')|lower }}"
              data-source="{{ (job.get('source') or 'web')|lower }}"
              data-score="{{ job.get('combined_score', 0) }}"
@@ -221,10 +271,20 @@
                                 {{ job.get('job_title', 'Untitled Role') }}
                             </a>
                         </h3>
+                        {% if job.get('company_specialization') %}
+                        <div style="font-size: 0.74rem; color: #047857; background: #f0fdf4; border: 1px solid #bbf7d0; border-radius: 6px; padding: 0.15rem 0.5rem; margin-top: 0.15rem; margin-bottom: 0.35rem; display: inline-block; font-weight: 600;">
+                            <i class="fa-solid fa-layer-group"></i> {{ job.company_specialization }}
+                        </div>
+                        {% endif %}
                         <div style="font-size: 0.82rem; color: var(--text-muted); display: flex; align-items: center; gap: 0.5rem; flex-wrap: wrap;">
                             <strong>{{ job.get('employer_name') or job.get('company') or 'Company' }}</strong> • 
                             <span><i class="fa-solid fa-location-dot"></i> {{ job.get('job_city') or job.get('location') or 'Remote' }}</span> • 
                             <span><i class="fa-solid fa-clock"></i> {{ job.get('job_employment_type', 'Full-time') }}</span>
+                            {% if job.get('is_bangladesh') %}
+                            <span class="badge-pill" style="background: #ecfdf5; color: #065f46; border: 1px solid #6ee7b7; font-size: 0.72rem; padding: 0.15rem 0.55rem; font-weight: 800;">
+                                🇧🇩 BD Tech Leader
+                            </span>
+                            {% endif %}
                             <span class="badge-pill" style="background: #ecfdf5; color: #047857; border: 1px solid #a7f3d0; font-size: 0.72rem; padding: 0.15rem 0.5rem;">
                                 <i class="fa-solid fa-bolt" style="color: #10b981;"></i> {{ job.get('source', 'Live') }}
                             </span>
@@ -366,6 +426,11 @@
                             {{ active_job.get('job_city') or active_job.get('location') or 'Remote' }} • 
                             {{ active_job.get('job_employment_type', 'Full-time') }}
                         </div>
+                        {% if active_job.get('company_specialization') %}
+                        <div style="font-size: 0.74rem; color: #047857; background: #f0fdf4; border: 1px solid #bbf7d0; border-radius: 6px; padding: 0.2rem 0.5rem; margin-top: 0.25rem; display: inline-block; font-weight: 600;">
+                            <i class="fa-solid fa-layer-group"></i> {{ active_job.company_specialization }}
+                        </div>
+                        {% endif %}
                     </div>
                 </div>
                 <span class="badge-pill {% if active_job.get('combined_score', 0) >= 70 %}badge-match-high{% elif active_job.get('combined_score', 0) >= 45 %}badge-match-med{% else %}badge-match-low{% endif %}">
@@ -655,7 +720,9 @@ function updateActiveChips() {
         'filter-location': { label: 'Location', all: 'all' },
         'filter-type': { label: 'Type', all: 'all' },
         'filter-source': { label: 'Source', all: 'all' },
-        'filter-reliability': { label: 'Reliability', all: 'all' }
+        'filter-reliability': { label: 'Reliability', all: 'all' },
+        'filter-country': { label: 'Country', all: 'all' },
+        'filter-company': { label: 'Company', all: 'all' }
     };
 
     for (const [id, meta] of Object.entries(dropdownLabels)) {
@@ -691,11 +758,33 @@ function removeSkillFilter(skill) {
     filterJobs();
 }
 
+function onCountryFilterChange() {
+    const countryEl = document.getElementById('filter-country');
+    const compSelect = document.getElementById('filter-company');
+    const val = countryEl ? countryEl.value.toLowerCase() : 'all';
+    if (compSelect) {
+        if (val === 'bangladesh') {
+            compSelect.style.display = 'inline-block';
+        } else {
+            compSelect.style.display = 'none';
+            compSelect.value = 'all';
+        }
+    }
+    const url = new URL(window.location.href);
+    url.searchParams.set('country', val);
+    if (val !== 'bangladesh') {
+        url.searchParams.delete('company');
+    }
+    window.location.href = url.toString();
+}
+
 function filterJobs() {
     const domainFilter = document.getElementById('filter-domain') ? document.getElementById('filter-domain').value.toLowerCase() : 'all';
     const seniorityFilter = document.getElementById('filter-seniority') ? document.getElementById('filter-seniority').value.toLowerCase() : 'all';
     const scoreFilter = document.getElementById('filter-score') ? document.getElementById('filter-score').value : 'all';
     const locFilter = document.getElementById('filter-location') ? document.getElementById('filter-location').value.toLowerCase() : 'all';
+    const countryFilter = document.getElementById('filter-country') ? document.getElementById('filter-country').value.toLowerCase() : 'all';
+    const compFilter = document.getElementById('filter-company') ? document.getElementById('filter-company').value.toLowerCase() : 'all';
     const typeFilter = document.getElementById('filter-type') ? document.getElementById('filter-type').value.toLowerCase() : 'all';
     const sourceFilter = document.getElementById('filter-source') ? document.getElementById('filter-source').value.toLowerCase() : 'all';
     const relFilter = document.getElementById('filter-reliability') ? document.getElementById('filter-reliability').value.toLowerCase() : 'all';
@@ -768,7 +857,22 @@ function filterJobs() {
             }
         }
 
-        if (matchDomain && matchSeniority && matchScore && matchLoc && matchType && matchSource && matchReliability && matchSearch && matchSkills) {
+        // 10. Country & Specific Company match
+        let matchCountry = true;
+        const cardCountry = (card.dataset.country || '').toLowerCase();
+        const cardIsBd = card.dataset.isBangladesh === 'true';
+        if (countryFilter === 'bangladesh') {
+            matchCountry = cardIsBd || cardCountry === 'bangladesh' || loc.includes('bangladesh') || loc.includes('dhaka');
+        } else if (countryFilter !== 'all') {
+            matchCountry = cardCountry.includes(countryFilter) || loc.includes(countryFilter);
+        }
+
+        let matchCompany = true;
+        if (compFilter && compFilter !== 'all') {
+            matchCompany = company.includes(compFilter);
+        }
+
+        if (matchDomain && matchSeniority && matchScore && matchLoc && matchType && matchSource && matchReliability && matchSearch && matchSkills && matchCountry && matchCompany) {
             card.style.display = 'block';
             visibleCount++;
         } else {

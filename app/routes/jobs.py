@@ -60,12 +60,43 @@ def results():
     search_query = request.args.get("q", "").strip()
     source_query = request.args.get("source", "all").strip().lower()
     location_query = request.args.get("location", "all").strip().lower()
+    country_query = request.args.get("country", "").strip().lower()
+    company_query = request.args.get("company", "all").strip()
     type_query = request.args.get("type", "all").strip().lower()
     seniority_query = request.args.get("seniority", "all").strip().lower()
     domain_query = request.args.get("domain", "all").strip().lower()
     min_score_query = request.args.get("min_score", "all").strip().lower()
     reliability_query = request.args.get("reliability", "all").strip().lower()
     sort_query = request.args.get("sort", "score").strip().lower()
+
+    # Intelligent detection for Bangladesh from candidate's resume, phone, education, or user profile
+    from app.services.bd_job_scraper import is_bangladesh_resume_or_location
+    from app.services.bd_companies import get_all_company_names, BD_TECH_COMPANIES
+
+    is_bd_resume = is_bangladesh_resume_or_location(
+        text=resume_text,
+        location_val=(pref.location or "") + " " + (current_user.location or ""),
+        phone_val=current_user.phone or "",
+        education_val=resume.education or "",
+    )
+    user_bd_pref = (
+        (pref.country and pref.country.lower() in ["bangladesh", "bd"])
+        or (current_user.country and current_user.country.lower() in ["bangladesh", "bd"])
+        or ("bangladesh" in (pref.location or "").lower())
+    )
+
+    if country_query:
+        selected_country = country_query
+        is_bd_active = country_query in ["bangladesh", "bd"]
+    elif company_query and company_query.lower() != "all":
+        selected_country = "bangladesh"
+        is_bd_active = True
+    elif user_bd_pref or is_bd_resume:
+        selected_country = "bangladesh"
+        is_bd_active = True
+    else:
+        selected_country = "all"
+        is_bd_active = False
 
     if search_query:
         target_role = search_query
@@ -74,10 +105,19 @@ def results():
     else:
         target_role = candidate_profile["recommended_role"]
 
-    location = pref.location or "Remote"
+    if is_bd_active and (not pref.location or pref.location == "Remote"):
+        location = "Dhaka, Bangladesh"
+    else:
+        location = pref.location or "Remote"
 
-    # Fetch live real-time job listings tailored to candidate's domain
-    jobs = fetch_jobs(target_role, location, source=source_query)
+    # Fetch live real-time job listings tailored to candidate's domain & country/company filter
+    jobs = fetch_jobs(
+        target_role,
+        location,
+        source=source_query,
+        country=selected_country,
+        company_filter=company_query,
+    )
     for index, job in enumerate(jobs):
         description = job.get("job_description", "")
         extracted_job_skills = extract_skills(description)
@@ -155,6 +195,30 @@ def results():
         min_s = int(min_score_query)
         display_jobs = [j for j in display_jobs if j.get("combined_score", 0) >= min_s]
 
+    # Country & Bangladesh Company filtering
+    if selected_country in ["bangladesh", "bd"]:
+        bd_filtered = [
+            j for j in display_jobs
+            if j.get("is_bangladesh")
+            or (j.get("country") or "").lower() == "bangladesh"
+            or "bangladesh" in (j.get("location") or "").lower()
+            or "dhaka" in (j.get("location") or "").lower()
+            or any(c.lower() in (j.get("company") or "").lower() for c in BD_TECH_COMPANIES)
+        ]
+        if bd_filtered:
+            display_jobs = bd_filtered
+    elif selected_country not in ["all", ""]:
+        display_jobs = [
+            j for j in display_jobs
+            if selected_country in (j.get("country") or "").lower() or selected_country in (j.get("location") or "").lower()
+        ]
+
+    if company_query and company_query.lower() != "all":
+        display_jobs = [
+            j for j in display_jobs
+            if company_query.lower() in (j.get("company") or "").lower() or company_query.lower() in (j.get("employer_name") or "").lower()
+        ]
+
     # Ensure reliability verification is attached to all display jobs
     attach_reliability_batch(display_jobs)
 
@@ -174,13 +238,19 @@ def results():
         display_jobs.sort(key=lambda j: (j.get("employer_name") or j.get("company", "")).lower())
     else:
         # Default smart priority ordering (internships first for intern seekers, then match score)
-        display_jobs.sort(
-            key=lambda j: get_job_ordering_tuple(
+        # When Bangladesh filter is active, ensure Bangladesh tech companies stay front and center
+        def smart_priority_sort(j):
+            is_bd_comp = 1 if (j.get("is_bangladesh") or any(c.lower() in (j.get("company") or "").lower() for c in BD_TECH_COMPANIES)) else 0
+            ordering_tuple = get_job_ordering_tuple(
                 j,
                 is_internship_seeking=is_internship_seeking,
                 is_entry_level_seeking=is_entry_level_seeking,
             )
-        )
+            if is_bd_active:
+                return (is_bd_comp, *ordering_tuple)
+            return ordering_tuple
+
+        display_jobs.sort(key=smart_priority_sort, reverse=is_bd_active)
 
     # Re-assign cache_id strictly AFTER sorting and ensure all jobs have valid job_ids and registry entries
     for idx, job in enumerate(display_jobs):
@@ -189,7 +259,7 @@ def results():
             job["job_id"] = generate_job_id(job)
         GLOBAL_JOBS_REGISTRY[job["job_id"]] = job
 
-    USER_JOBS_CACHE[current_user.id] = display_jobs[:35]
+    USER_JOBS_CACHE[current_user.id] = display_jobs[:45]
 
     # Dynamic extraction of top skills across active results for one-click quick filtering
     skills_counter = {}
@@ -204,13 +274,18 @@ def results():
 
     return render_template(
         "results.html",
-        jobs=display_jobs[:35],
+        jobs=display_jobs[:45],
         resume=resume,
         candidate_profile=candidate_profile,
         saved_jobs_count=saved_jobs_count,
         top_match_score=display_jobs[0]["combined_score"] if display_jobs else 88,
         selected_source=source_query,
         selected_location=location_query,
+        selected_country=selected_country,
+        selected_company=company_query,
+        all_bd_companies=get_all_company_names(),
+        is_bd_active=is_bd_active,
+        is_bd_resume=is_bd_resume,
         selected_type=type_query,
         selected_seniority=seniority_query,
         selected_domain=domain_query,
