@@ -40,7 +40,22 @@ def _resolve_database_uri() -> str:
                     db_url = db_url.replace("postgresql://", "postgresql+pg8000://", 1)
                     db_url = db_url.replace("?pgbouncer=true", "").replace("&pgbouncer=true", "")
 
-        return db_url
+        # In production/Vercel, always use the configured cloud database URL
+        if IS_VERCEL:
+            return db_url
+
+        # In local development, verify that the remote cloud database is reachable and authenticated.
+        # If credentials fail (e.g. invalid password), fall back to local SQLite so registration,
+        # login, and application features run seamlessly without 500 ProgrammingError crashes.
+        try:
+            from sqlalchemy import create_engine, text
+            from sqlalchemy.pool import NullPool
+            test_engine = create_engine(db_url, poolclass=NullPool, connect_args={"timeout": 3})
+            with test_engine.connect() as test_conn:
+                test_conn.execute(text("SELECT 1"))
+            return db_url
+        except Exception as e:
+            print(f"[*] Notice: Remote database not authenticated ({type(e).__name__}). Using local SQLite database.", flush=True)
 
     # Serverless fallback (Vercel filesystem is read-only except /tmp)
     if IS_VERCEL:
