@@ -19,7 +19,7 @@ class TestAuthLifecycle(unittest.TestCase):
         # 1. Local environment (COOKIE_SECURE = False)
         os.environ.pop("VERCEL", None)
         os.environ.pop("SESSION_COOKIE_SECURE", None)
-        app = create_app()
+        app = create_app({"SQLALCHEMY_DATABASE_URI": "sqlite:///:memory:"})
         client = app.test_client()
 
         # Check unauthenticated access redirects to /login
@@ -75,7 +75,7 @@ class TestAuthLifecycle(unittest.TestCase):
     def test_vercel_authentication_persistence(self):
         # 2. Production Vercel environment (COOKIE_SECURE = True)
         os.environ["VERCEL"] = "1"
-        app_vercel = create_app()
+        app_vercel = create_app({"SQLALCHEMY_DATABASE_URI": "sqlite:///:memory:"})
         self.assertTrue(app_vercel.config["SESSION_COOKIE_SECURE"], "SESSION_COOKIE_SECURE must be True when VERCEL=1")
 
         client_vercel = app_vercel.test_client()

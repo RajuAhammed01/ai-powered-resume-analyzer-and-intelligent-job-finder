@@ -141,10 +141,18 @@ def create_app(test_config=None):
         return render_template("errors/500.html"), 500
 
     with app.app_context():
-        db.create_all()
+        try:
+            db.create_all()
+        except Exception as e:
+            app.logger.warning(f"db.create_all notice: {e}")
+
         try:
             from sqlalchemy import text
-            db.session.execute(text("ALTER TABLE user ADD COLUMN profile_image VARCHAR(255) DEFAULT ''"))
+            engine_name = db.engine.name.lower()
+            if "postgres" in engine_name:
+                db.session.execute(text('ALTER TABLE "user" ADD COLUMN IF NOT EXISTS profile_image VARCHAR(255) DEFAULT \'\''))
+            else:
+                db.session.execute(text("ALTER TABLE user ADD COLUMN profile_image VARCHAR(255) DEFAULT ''"))
             db.session.commit()
         except Exception:
             db.session.rollback()

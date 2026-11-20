@@ -10,22 +10,21 @@ IS_VERCEL = bool(os.getenv("VERCEL") or os.getenv("AWS_LAMBDA_FUNCTION_NAME"))
 
 
 def _resolve_database_uri() -> str:
-    # Check for cloud database URLs (Supabase, Neon, Neon Postgres, Vercel Postgres, Railway, MySQL, TiDB, Aiven)
-    # Default to user's TiDB Cloud cluster so serverless deployments never drop to ephemeral /tmp SQLite
-    default_cloud_db = "mysql://vPvpLzbHA5TNLVn.root:oECiHgv0WR6AY2KW@gateway01.ap-southeast-1.prod.aws.tidbcloud.com:4000/jobsnap"
+    # Supabase PostgreSQL configuration for project oihepjwiogxmpoxsdhti
+    # Supports transaction-mode pooler (port 6543, pgbouncer=true) for runtime
+    # and session-mode pooler / direct URL (port 5432) for migrations
+    default_supabase_db = (
+        "postgresql://postgres.oihepjwiogxmpoxsdhti:Raju%20Ahammed786%40%40@aws-1-ap-northeast-1.pooler.supabase.com:6543/postgres?pgbouncer=true"
+    )
     db_url = (
         os.getenv("DATABASE_URL")
+        or os.getenv("DIRECT_URL")
         or os.getenv("POSTGRES_URL")
         or os.getenv("POSTGRES_PRISMA_URL")
         or os.getenv("POSTGRES_URL_NON_POOLING")
-        or os.getenv("MYSQL_URL")
-        or default_cloud_db
+        or default_supabase_db
     )
-    if db_url:
-        # TiDB / MySQL internal schema guard: 'sys' is restricted from user table creation
-        if "/sys" in db_url and ("tidbcloud.com" in db_url or "mysql" in db_url):
-            db_url = db_url.replace("/sys", "/jobsnap", 1)
-
+    if db_url and "[YOUR-PASSWORD]" not in db_url:
         # SQLAlchemy 1.4+ / 2.0+ requires postgresql:// instead of postgres://
         if db_url.startswith("postgres://"):
             db_url = db_url.replace("postgres://", "postgresql://", 1)
@@ -36,11 +35,10 @@ def _resolve_database_uri() -> str:
                 try:
                     import psycopg2  # noqa: F401
                 except ImportError:
+                    # Pure-Python pg8000 ensures seamless serverless & cross-platform support
+                    # Note: pg8000.connect() does not accept pgbouncer query parameter
                     db_url = db_url.replace("postgresql://", "postgresql+pg8000://", 1)
-
-        # MySQL driver normalization (use pure-Python PyMySQL)
-        if db_url.startswith("mysql://") and not db_url.startswith("mysql+"):
-            db_url = db_url.replace("mysql://", "mysql+pymysql://", 1)
+                    db_url = db_url.replace("?pgbouncer=true", "").replace("&pgbouncer=true", "")
 
         return db_url
 
@@ -63,8 +61,11 @@ class Config:
     SQLALCHEMY_TRACK_MODIFICATIONS = False
     TEMPLATES_AUTO_RELOAD = True
 
-    # Use NullPool on serverless/Vercel to prevent stale connection reuse across frozen lambdas
-    if IS_VERCEL:
+    # Configure connection options:
+    # NullPool is required on Vercel and with PgBouncer transaction mode (port 6543)
+    # to avoid double-pooling and connection exhaustion on Supabase.
+    is_pgbouncer = "6543" in SQLALCHEMY_DATABASE_URI or "pgbouncer=true" in SQLALCHEMY_DATABASE_URI
+    if IS_VERCEL or is_pgbouncer:
         SQLALCHEMY_ENGINE_OPTIONS = {
             "poolclass": NullPool,
         }
