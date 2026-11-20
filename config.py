@@ -20,6 +20,14 @@ def _resolve_database_uri() -> str:
         # SQLAlchemy 1.4+ / 2.0+ requires postgresql:// instead of postgres://
         if db_url.startswith("postgres://"):
             db_url = db_url.replace("postgres://", "postgresql://", 1)
+        if db_url.startswith("postgresql://") and not db_url.startswith("postgresql+"):
+            try:
+                import psycopg  # noqa: F401
+            except ImportError:
+                try:
+                    import psycopg2  # noqa: F401
+                except ImportError:
+                    db_url = db_url.replace("postgresql://", "postgresql+pg8000://", 1)
         return db_url
 
     # Serverless fallback (Vercel filesystem is read-only except /tmp)
