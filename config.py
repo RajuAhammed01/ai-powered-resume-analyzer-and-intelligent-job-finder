@@ -18,6 +18,10 @@ def _resolve_database_uri() -> str:
         or os.getenv("MYSQL_URL")
     )
     if db_url:
+        # TiDB / MySQL internal schema guard: 'sys' is restricted from user table creation
+        if "/sys" in db_url and ("tidbcloud.com" in db_url or "mysql" in db_url):
+            db_url = db_url.replace("/sys", "/jobsnap", 1)
+
         # SQLAlchemy 1.4+ / 2.0+ requires postgresql:// instead of postgres://
         if db_url.startswith("postgres://"):
             db_url = db_url.replace("postgres://", "postgresql://", 1)
