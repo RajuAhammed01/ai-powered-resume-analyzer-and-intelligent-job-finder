@@ -112,7 +112,10 @@ def login():
             failure_reason=reason,
         )
 
-        flash("Invalid email/username or password")
+        if not user:
+            flash("No account registered with this email or username. Please click 'Create an account' below to sign up.")
+        else:
+            flash("Incorrect password. Please verify your password and try again.")
 
     return render_template("auth/login.html", is_auth_page=True)
 

@@ -67,6 +67,8 @@ class Config:
         "pool_pre_ping": True,
         "pool_recycle": 280,
         "pool_timeout": 20,
+        "pool_size": 10,
+        "max_overflow": 20,
     }
 
     # Session cookie hardening across deployments and redirects

@@ -15,8 +15,8 @@ def utc_now() -> datetime:
 
 class User(UserMixin, db.Model):
     id = db.Column(db.Integer, primary_key=True)
-    name = db.Column(db.String(100), nullable=False)
-    email = db.Column(db.String(120), unique=True, nullable=False)
+    name = db.Column(db.String(100), nullable=False, index=True)
+    email = db.Column(db.String(120), unique=True, nullable=False, index=True)
     password_hash = db.Column(db.String(200), nullable=False)
     phone = db.Column(db.String(50), default="")
     location = db.Column(db.String(100), default="")
@@ -102,13 +102,13 @@ class User(UserMixin, db.Model):
 
 class LoginHistory(db.Model):
     id = db.Column(db.Integer, primary_key=True)
-    user_id = db.Column(db.Integer, db.ForeignKey("user.id"), nullable=True)
-    email = db.Column(db.String(120), nullable=False)
+    user_id = db.Column(db.Integer, db.ForeignKey("user.id"), nullable=True, index=True)
+    email = db.Column(db.String(120), nullable=False, index=True)
     status = db.Column(db.String(20), nullable=False)  # SUCCESS or FAILED
     ip_address = db.Column(db.String(45), default="127.0.0.1")
     user_agent = db.Column(db.String(255), default="")
     failure_reason = db.Column(db.String(200), default="")
-    timestamp = db.Column(db.DateTime, default=utc_now)
+    timestamp = db.Column(db.DateTime, default=utc_now, index=True)
 
     def to_dict(self):
         return {
@@ -126,7 +126,7 @@ class LoginHistory(db.Model):
 
 class Resume(db.Model):
     id = db.Column(db.Integer, primary_key=True)
-    user_id = db.Column(db.Integer, db.ForeignKey("user.id"), nullable=False)
+    user_id = db.Column(db.Integer, db.ForeignKey("user.id"), nullable=False, index=True)
     filename = db.Column(db.String(200), default="Resume.pdf")
     file_path = db.Column(db.String(300))
     extracted_text = db.Column(db.Text)
@@ -136,7 +136,7 @@ class Resume(db.Model):
     contact_info = db.Column(db.Text)
     completeness_score = db.Column(db.Integer, default=0)
     ats_score = db.Column(db.Integer, default=85)
-    upload_date = db.Column(db.DateTime, default=utc_now)
+    upload_date = db.Column(db.DateTime, default=utc_now, index=True)
 
     @property
     def skills(self):
@@ -182,7 +182,7 @@ class Resume(db.Model):
 
 class JobPreference(db.Model):
     id = db.Column(db.Integer, primary_key=True)
-    user_id = db.Column(db.Integer, db.ForeignKey("user.id"), nullable=False)
+    user_id = db.Column(db.Integer, db.ForeignKey("user.id"), nullable=False, index=True)
     target_role = db.Column(db.String(200), default="Machine Learning Engineer, Data Scientist")
     location_preference = db.Column(db.String(100), default="Any Location")
     location = db.Column(db.String(100), default="Remote")
@@ -203,7 +203,7 @@ class JobPreference(db.Model):
 
 class SavedJob(db.Model):
     id = db.Column(db.Integer, primary_key=True)
-    user_id = db.Column(db.Integer, db.ForeignKey("user.id"), nullable=False)
+    user_id = db.Column(db.Integer, db.ForeignKey("user.id"), nullable=False, index=True)
     job_id = db.Column(db.String(100), default="j001")
     job_title = db.Column(db.String(200))
     company = db.Column(db.String(200))
