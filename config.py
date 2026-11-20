@@ -9,12 +9,13 @@ IS_VERCEL = bool(os.getenv("VERCEL") or os.getenv("AWS_LAMBDA_FUNCTION_NAME"))
 
 
 def _resolve_database_uri() -> str:
-    # Check for cloud database URLs (Supabase, Neon, Neon Postgres, Vercel Postgres, Railway)
+    # Check for cloud database URLs (Supabase, Neon, Neon Postgres, Vercel Postgres, Railway, MySQL, TiDB, Aiven)
     db_url = (
         os.getenv("DATABASE_URL")
         or os.getenv("POSTGRES_URL")
         or os.getenv("POSTGRES_PRISMA_URL")
         or os.getenv("POSTGRES_URL_NON_POOLING")
+        or os.getenv("MYSQL_URL")
     )
     if db_url:
         # SQLAlchemy 1.4+ / 2.0+ requires postgresql:// instead of postgres://
@@ -28,6 +29,11 @@ def _resolve_database_uri() -> str:
                     import psycopg2  # noqa: F401
                 except ImportError:
                     db_url = db_url.replace("postgresql://", "postgresql+pg8000://", 1)
+
+        # MySQL driver normalization (use pure-Python PyMySQL)
+        if db_url.startswith("mysql://") and not db_url.startswith("mysql+"):
+            db_url = db_url.replace("mysql://", "mysql+pymysql://", 1)
+
         return db_url
 
     # Serverless fallback (Vercel filesystem is read-only except /tmp)
