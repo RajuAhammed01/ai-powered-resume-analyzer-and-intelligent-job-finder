@@ -132,8 +132,8 @@ def dashboard():
 
             raw_jobs = fetch_jobs(target_role, location, country=target_country)
             processed_jobs = []
-            # Process up to 15 prioritized jobs for ultra-fast dashboard generation
-            for index, job_item in enumerate(raw_jobs[:15]):
+            # Process top 6 prioritized jobs for fast responsive dashboard generation
+            for index, job_item in enumerate(raw_jobs[:6]):
                 job = dict(job_item)
                 description = job.get("job_description", "")
                 extracted_j = extract_skills(description)
