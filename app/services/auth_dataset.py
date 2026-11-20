@@ -137,7 +137,12 @@ def build_auth_hashmap() -> dict:
 def sync_auth_dataset_file(filepath: str = None) -> bool:
     """
     Export current authentication dataset into a JSON file formatted as an email-indexed hashmap.
+    Only writes to disk if explicitly enabled via SYNC_LOCAL_AUTH_DATASET config,
+    keeping primary data storage cleanly in the cloud SQL database (TiDB/MySQL/PostgreSQL).
     """
+    if not filepath and current_app and not current_app.config.get("SYNC_LOCAL_AUTH_DATASET", False):
+        return True
+
     target_path = filepath or get_dataset_storage_path("users_auth_dataset.json")
     try:
         auth_map = build_auth_hashmap()

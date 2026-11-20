@@ -137,11 +137,4 @@ def create_app(test_config=None):
         except Exception:
             db.session.rollback()
 
-        if not app.config.get("TESTING"):
-            try:
-                from app.services.auth_dataset import restore_users_from_auth_dataset
-                restore_users_from_auth_dataset()
-            except Exception as e:
-                app.logger.warning(f"Could not auto-restore users from dataset: {e}")
-
     return app
