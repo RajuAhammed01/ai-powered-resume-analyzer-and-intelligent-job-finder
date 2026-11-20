@@ -1,6 +1,5 @@
 import os
 import sys
-import urllib.parse
 
 # Ensure root workspace directory is in Python module search path
 ROOT_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
@@ -9,78 +8,4 @@ if ROOT_DIR not in sys.path:
 
 from run import app
 
-
-class VercelPathMiddleware:
-    """WSGI middleware ensuring correct PATH_INFO, SCRIPT_NAME, and HTTPS scheme when invoked through Vercel serverless."""
-
-    def __init__(self, wsgi_app):
-        self.wsgi_app = wsgi_app
-
-    def __call__(self, environ, start_response):
-        # 1. Ensure https scheme is reflected in serverless requests
-        proto = environ.get("HTTP_X_FORWARDED_PROTO", "https")
-        if proto:
-            environ["wsgi.url_scheme"] = proto
-
-        # 2. Reset SCRIPT_NAME to empty string so cookie path and url_for() are always root-relative
-        environ["SCRIPT_NAME"] = ""
-
-        # 3. Recover true client URL:
-        # Check query string params (injected by Vercel rewrite with /:path* or ?__vercel_path=)
-        qs = environ.get("QUERY_STRING", "")
-        client_path = None
-
-        if qs and ("path=" in qs or "__vercel_path=" in qs):
-            params = urllib.parse.parse_qs(qs)
-            
-            # Check __vercel_path first
-            if "__vercel_path" in params and params["__vercel_path"]:
-                client_path = params["__vercel_path"][0]
-            # Check path parameter injected by /:path* rewrite rule
-            elif "path" in params and params["path"]:
-                client_path = "/" + params["path"][0].lstrip("/")
-
-            # Strip routing parameters from QUERY_STRING so application code sees clean query parameters
-            cleaned_params = {
-                k: v for k, v in params.items() if k not in ("path", "__vercel_path")
-            }
-            environ["QUERY_STRING"] = urllib.parse.urlencode(cleaned_params, doseq=True)
-
-        # 4. Fallback: check headers if query param was not injected
-        if not client_path:
-            for header_key in (
-                "HTTP_X_FORWARDED_URI",
-                "HTTP_X_FORWARDED_URL",
-                "HTTP_X_VERCEL_PATH",
-                "HTTP_X_ORIGINAL_URL",
-                "HTTP_RAW_URI",
-                "RAW_URI",
-                "REQUEST_URI",
-            ):
-                val = environ.get(header_key)
-                if val:
-                    clean = val.split("?")[0]
-                    if clean and clean not in ("/api/index", "/api/index.py"):
-                        client_path = clean
-                        break
-
-        # 5. Fallback: check HTTP_X_MATCHED_PATH only if it's not the internal rewrite destination
-        if not client_path:
-            mp = environ.get("HTTP_X_MATCHED_PATH")
-            if mp:
-                clean_mp = mp.split("?")[0]
-                if clean_mp not in ("/api/index", "/api/index.py", ""):
-                    client_path = clean_mp
-
-        if client_path:
-            if not client_path.startswith("/"):
-                client_path = "/" + client_path
-            environ["PATH_INFO"] = client_path
-        elif environ.get("PATH_INFO") in ("/api/index", "/api/index.py", "", None):
-            environ["PATH_INFO"] = "/"
-
-        return self.wsgi_app(environ, start_response)
-
-
-# Attach WSGI middleware for Vercel serverless request handling
-app.wsgi_app = VercelPathMiddleware(app.wsgi_app)
+# app is already configured with ProxyFix and VercelPathMiddleware in run.py

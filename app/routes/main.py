@@ -63,8 +63,6 @@ USER_DASHBOARD_CACHE = {}
 @main_bp.route("/api/index")
 @main_bp.route("/")
 def index():
-    if request.args.get("dump"):
-        return jsonify({k: str(v) for k, v in request.environ.items() if k.startswith("HTTP_") or k in ("PATH_INFO", "SCRIPT_NAME", "QUERY_STRING", "REQUEST_URI", "RAW_URI")})
     return render_template("index.html")
 
 
