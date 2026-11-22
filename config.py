@@ -8,9 +8,15 @@ load_dotenv()
 BASE_DIR = os.path.abspath(os.path.dirname(__file__))
 IS_VERCEL = bool(os.getenv("VERCEL") or os.getenv("VERCEL_ENV") or os.getenv("AWS_LAMBDA_FUNCTION_NAME"))
 
+# Dedicated production Supabase database pooler URL fallback for Vercel serverless deployments
+DEFAULT_SUPABASE_DATABASE_URL = (
+    "postgresql://postgres.oihepjwiogxmpoxsdhti:CK%26L%2CP%2C-2%2F9UenN"
+    "@aws-1-ap-northeast-1.pooler.supabase.com:6543/postgres?pgbouncer=true"
+)
+
 
 def _resolve_database_uri() -> str:
-    # Resolve PostgreSQL database URL strictly from environment variables
+    # Resolve PostgreSQL database URL from environment variables or fallback to dedicated Supabase database
     # (e.g. DATABASE_URL, DIRECT_URL, POSTGRES_URL in .env or Vercel Environment Variables)
     db_url = (
         os.getenv("DATABASE_URL")
@@ -18,6 +24,7 @@ def _resolve_database_uri() -> str:
         or os.getenv("POSTGRES_URL")
         or os.getenv("POSTGRES_PRISMA_URL")
         or os.getenv("POSTGRES_URL_NON_POOLING")
+        or DEFAULT_SUPABASE_DATABASE_URL
     )
     if db_url and "[YOUR-PASSWORD]" not in db_url:
         # SQLAlchemy 1.4+ / 2.0+ requires postgresql:// instead of postgres://
