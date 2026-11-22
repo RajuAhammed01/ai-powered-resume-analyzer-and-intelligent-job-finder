@@ -20,7 +20,7 @@
                 <span style="width: 7px; height: 7px; border-radius: 50%; background: #10B981; display: inline-block;"></span> Live Matching Active
             </div>
             <h1 style="font-family: var(--font-heading); font-size: 1.85rem; font-weight: 800; color: #0E1B2E; letter-spacing: -0.5px; margin-bottom: 0.35rem;">
-                Welcome back, <span style="color: #1A6DF7;">{{ current_user.name if current_user.name else 'ridoy' }}!</span>
+                Welcome back, <span style="color: #1A6DF7;">{{ current_user.name if current_user.name else (current_user.email.split('@')[0] if current_user.email else 'User') }}!</span>
             </h1>
             <p style="color: #475569; font-size: 0.95rem; font-weight: 500; margin: 0;">
                 Let's find your perfect job match today.
@@ -242,9 +242,11 @@
             <h3 style="font-family: var(--font-heading); font-size: 1.08rem; font-weight: 700; margin: 0; color: #0E1B2E; display: flex; align-items: center; gap: 0.45rem;">
                 <i class="fa-solid fa-file-lines" style="color: #1A6DF7;"></i> Resume Snapshot
             </h3>
+            {% if resume and resume.upload_date %}
             <span style="font-size: 0.78rem; color: #64748B;">
-                Updated: {{ resume.upload_date.strftime('%b %d, %Y') if (resume and resume.upload_date) else 'Nov 13, 2026' }}
+                Updated: {{ resume.upload_date.strftime('%b %d, %Y') }}
             </span>
+            {% endif %}
         </div>
 
         {% if resume %}
@@ -255,7 +257,7 @@
                         <span class="badge-pdf">PDF</span>
                         <div style="min-width: 0;">
                             <div style="font-weight: 700; font-size: 0.88rem; color: #0E1B2E; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 300px;">
-                                {{ resume.filename or 'Raju_Ahammed_Backend_Developer_Intern.docx.pdf' }}
+                                {{ resume.filename or 'Uploaded_Resume.pdf' }}
                             </div>
                             <div style="font-size: 0.75rem; color: #10B981; font-weight: 600; display: flex; align-items: center; gap: 0.35rem; margin-top: 0.2rem;">
                                 <i class="fa-solid fa-circle-check"></i> Profile analysed successfully
@@ -310,9 +312,7 @@
                         {{ skill }}
                     </span>
                 {% else %}
-                    <span class="badge-pill" style="background: #EFF6FF; color: #1D4ED8; border: 1px solid #DBEAFE; font-size: 0.75rem;">Python</span>
-                    <span class="badge-pill" style="background: #EFF6FF; color: #1D4ED8; border: 1px solid #DBEAFE; font-size: 0.75rem;">Django</span>
-                    <span class="badge-pill" style="background: #EFF6FF; color: #1D4ED8; border: 1px solid #DBEAFE; font-size: 0.75rem;">REST APIs</span>
+                    <span style="font-size: 0.75rem; color: #94A3B8; font-style: italic;">No specific skills detected</span>
                 {% endfor %}
                 {% if resume.skills|length > 5 %}
                     <span class="badge-pill" style="background: #F1F5F9; color: #64748B; font-size: 0.75rem;">

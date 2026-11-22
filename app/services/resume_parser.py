@@ -231,15 +231,22 @@ def extract_structure(text: str, filepath: str = None) -> dict:
 
     # 3. Detect location from header lines (e.g. 'Dhaka, Bangladesh')
     candidate_location = ""
+    disallowed_loc_words = {
+        "university", "institute", "limited", "inc", "ltd", "september",
+        "january", "february", "march", "april", "may", "june", "july",
+        "august", "october", "november", "december", "experience", "building",
+        "engineer", "developer", "proficient", "skills", "projects", "responsible",
+        "working", "developed", "using", "designed", "summary", "objective",
+        "curriculum", "years", "proven", "passionate", "seeking", "motivated",
+        "fluent", "demonstrated", "accessible", "responsive"
+    }
     for l in lines[:6]:
+        if len(l) > 50:
+            continue
         loc_match = re.search(r"([A-Za-z\s]{2,25},\s*[A-Za-z\s]{2,25})", l)
         if loc_match:
             loc_candidate = loc_match.group(1).strip()
-            if not any(k in loc_candidate.lower() for k in [
-                "university", "institute", "limited", "inc", "ltd", "september",
-                "january", "february", "march", "april", "may", "june", "july",
-                "august", "october", "november", "december"
-            ]):
+            if not any(k in loc_candidate.lower() for k in disallowed_loc_words):
                 candidate_location = loc_candidate
                 break
 

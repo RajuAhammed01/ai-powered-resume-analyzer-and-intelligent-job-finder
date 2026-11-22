@@ -216,7 +216,7 @@ def test_results_and_details_reliability_ui_integration():
         from unittest.mock import patch
         with patch("app.routes.jobs.fetch_jobs", return_value=[verified_job, suspicious_job]):
             # Test results page rendering
-            res = client.get("/results")
+            res = client.get("/results?country=all")
             assert res.status_code == 200
             html = res.get_data(as_text=True)
             assert 'id="filter-reliability"' in html

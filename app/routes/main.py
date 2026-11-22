@@ -360,8 +360,6 @@ def profile():
                 cand_prof = detect_candidate_profile(resume.skills or [], resume.extracted_text or "", structure.get("title_role", ""))
                 role_to_use = structure.get("title_role") or cand_prof["recommended_role"]
 
-                if structure.get("name") and (not current_user.name or current_user.name == "User"):
-                    current_user.name = structure["name"]
                 if structure.get("phone"):
                     current_user.phone = structure["phone"]
                 if structure.get("location"):

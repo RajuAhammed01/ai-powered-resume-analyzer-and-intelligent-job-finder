@@ -77,8 +77,6 @@ def upload():
                 current_user.title_role = recommended_role
             elif structure.get("title_role"):
                 current_user.title_role = structure["title_role"]
-            if structure.get("name") and (not current_user.name or current_user.name == "User"):
-                current_user.name = structure["name"]
 
             # Sync JobPreference target_role, location and country with actual career profile
             pref = JobPreference.query.filter_by(user_id=current_user.id).first()

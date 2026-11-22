@@ -140,21 +140,23 @@ def create_app(test_config=None):
             }), 500
         return render_template("errors/500.html"), 500
 
-    with app.app_context():
-        try:
-            db.create_all()
-        except Exception as e:
-            app.logger.warning(f"db.create_all notice: {e}")
+    is_postgres = "postgres" in app.config.get("SQLALCHEMY_DATABASE_URI", "").lower()
+    if not (bool(os.getenv("VERCEL")) and is_postgres and not test_config):
+        with app.app_context():
+            try:
+                db.create_all()
+            except Exception as e:
+                app.logger.warning(f"db.create_all notice: {e}")
 
-        try:
-            from sqlalchemy import text
-            engine_name = db.engine.name.lower()
-            if "postgres" in engine_name:
-                db.session.execute(text('ALTER TABLE "user" ADD COLUMN IF NOT EXISTS profile_image VARCHAR(255) DEFAULT \'\''))
-            else:
-                db.session.execute(text("ALTER TABLE user ADD COLUMN profile_image VARCHAR(255) DEFAULT ''"))
-            db.session.commit()
-        except Exception:
-            db.session.rollback()
+            try:
+                from sqlalchemy import text
+                engine_name = db.engine.name.lower()
+                if "postgres" in engine_name:
+                    db.session.execute(text('ALTER TABLE "user" ADD COLUMN IF NOT EXISTS profile_image VARCHAR(255) DEFAULT \'\''))
+                else:
+                    db.session.execute(text("ALTER TABLE user ADD COLUMN profile_image VARCHAR(255) DEFAULT ''"))
+                db.session.commit()
+            except Exception:
+                db.session.rollback()
 
     return app
