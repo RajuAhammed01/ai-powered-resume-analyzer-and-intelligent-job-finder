@@ -61,6 +61,17 @@ Run the full automated test suite:
 
 ---
 
+## 🛠️ Offline Machine Learning & Development Dependencies
+
+The production serverless app uses the lightweight packages listed in `requirements.txt`. For local development, offline NLP retraining (`scripts/train_ner.py`), or sentence-transformers fine-tuning, install the development dependencies:
+
+```bash
+pip install -r requirements-dev.txt
+python scripts/train_ner.py
+```
+
+---
+
 ## 🔒 Security, Authentication Dataset & Architecture
 
 - **User Authentication & Activity Dataset:**

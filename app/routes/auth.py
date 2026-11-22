@@ -54,7 +54,7 @@ def register():
             failure_reason="Account registration created",
         )
 
-        login_user(user, remember=False)
+        login_user(user, remember=True)
         from flask import session
         session.permanent = True
 
@@ -97,7 +97,7 @@ def login():
                 user=user,
                 failure_reason="",
             )
-            login_user(user, remember=remember)
+            login_user(user, remember=True)
             from flask import session
             session.permanent = True
 
@@ -148,18 +148,30 @@ def activity():
 @auth_bp.route("/export-my-data")
 @login_required
 def export_my_data():
-    """Download the authenticated user's own profile and activity records (privacy-preserving)."""
+    """Download the authenticated user's complete profile, resumes, career preferences, saved jobs, and activity records."""
     import json
+    pref = current_user.job_preference
     data = {
+        "export_metadata": {
+            "service": "JobSnap AI Resume Analyzer & Intelligent Job Finder",
+            "exported_at": utc_now().isoformat(),
+            "data_owner_id": current_user.id,
+            "email": current_user.email,
+        },
         "user_id": current_user.id,
         "name": current_user.name,
         "email": current_user.email,
-        "phone": current_user.phone,
-        "location": current_user.location,
-        "title_role": current_user.title_role,
+        "phone": current_user.phone or "",
+        "location": current_user.location or "",
+        "country": current_user.country or "",
+        "title_role": current_user.title_role or "",
+        "linkedin_url": current_user.linkedin_url or "",
         "account_created_at": current_user.created_at.isoformat() if current_user.created_at else None,
         "last_login_at": current_user.last_login.isoformat() if current_user.last_login else None,
         "total_logins": current_user.login_count or 1,
+        "job_preferences": pref.to_dict() if pref else None,
+        "resumes": [r.to_dict() for r in (current_user.resumes or [])],
+        "saved_jobs": [j.to_dict() for j in (current_user.saved_jobs or [])],
         "login_activity": [
             {
                 "timestamp": log.timestamp.isoformat() if log.timestamp else None,
@@ -167,7 +179,7 @@ def export_my_data():
                 "ip_address": log.ip_address,
                 "user_agent": log.user_agent,
             }
-            for log in current_user.login_history[:20]
+            for log in (current_user.login_history or [])[:20]
         ],
     }
     return Response(
@@ -182,38 +194,59 @@ def export_my_data():
 def dataset_view():
     """
     Returns the user authentication dataset structured as a hashmap
-    indexed by email, containing signup date, hashed passwords, and login history.
+    indexed by email.
+    - Regular users are strictly scoped to their own personal account.
+    - Administrators (status='admin' or in ADMIN_EMAILS) see the global dataset.
+    - Sensitive password hashes and exact IP logs are scrubbed for privacy.
     """
-    hashmap = build_auth_hashmap()
-    summary = get_auth_dataset_summary()
-    
+    scope_user = None if current_user.is_admin else current_user
+    hashmap = build_auth_hashmap(user=scope_user, include_sensitive=False)
+    summary = get_auth_dataset_summary(user=scope_user)
+    is_admin = current_user.is_admin
+
     # If JSON requested via query arg e.g. /dataset?format=json
     if request.args.get("format") == "json":
         return jsonify({
+            "scope": "global" if is_admin else "personal",
+            "is_admin": is_admin,
             "summary": summary,
             "users_hashmap": hashmap,
         })
 
-    return render_template("auth/dataset_view.html", hashmap=hashmap, summary=summary)
+    return render_template(
+        "auth/dataset_view.html",
+        hashmap=hashmap,
+        summary=summary,
+        is_admin_view=is_admin,
+    )
 
 
 @auth_bp.route("/export-dataset")
 @login_required
 def export_dataset():
-    """Download the full authentication & activity dataset as a JSON file."""
+    """
+    Download authentication dataset as JSON with password hashes scrubbed.
+    - Regular users receive only their own sanitized account activity record.
+    - Administrators receive aggregated dataset with credentials protected.
+    """
     import json
-    hashmap = build_auth_hashmap()
-    summary = get_auth_dataset_summary()
+    scope_user = None if current_user.is_admin else current_user
+    hashmap = build_auth_hashmap(user=scope_user, include_sensitive=False)
+    summary = get_auth_dataset_summary(user=scope_user)
+    is_admin = current_user.is_admin
+
     data = {
         "dataset_name": "JobSnap User Authentication & Login History Dataset",
-        "description": "User credentials (cryptographically hashed), signup dates, and login activity records",
+        "scope": "global_administrative" if is_admin else "personal_authenticated",
+        "description": "User account metadata, signup dates, and login activity records (credentials cryptographically protected)",
         "exported_at": utc_now().isoformat(),
         "summary": summary,
         "users_hashmap": hashmap,
     }
     response_json = json.dumps(data, indent=2)
+    filename = "users_auth_dataset.json" if is_admin else f"my_auth_dataset_{current_user.id}.json"
     return Response(
         response_json,
         mimetype="application/json",
-        headers={"Content-Disposition": "attachment;filename=users_auth_dataset.json"},
+        headers={"Content-Disposition": f"attachment;filename={filename}"},
     )

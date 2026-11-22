@@ -73,9 +73,9 @@
 
                 <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.5rem; font-size: 0.88rem;">
                     <label style="display: flex; align-items: center; gap: 0.5rem; color: var(--text-muted); cursor: pointer;">
-                        <input type="checkbox" name="remember" style="accent-color: var(--primary);"> Remember me
+                        <input type="checkbox" name="remember" checked style="accent-color: var(--primary);"> Remember me
                     </label>
-                    <a href="#" style="color: var(--primary); text-decoration: none; font-weight: 600;">Forgot password?</a>
+                    <a href="javascript:void(0)" onclick="document.getElementById('forgotPasswordModal').style.display='flex'" style="color: var(--primary); text-decoration: none; font-weight: 600;">Forgot password?</a>
                 </div>
 
                 <button type="submit" class="btn btn-primary" style="width: 100%; padding: 0.85rem; font-size: 1rem; border-radius: var(--radius-md);">
@@ -90,6 +90,26 @@
                 </a>
             </div>
         </div>
+    </div>
+</div>
+
+<!-- Password Reset Instructions Modal -->
+<div id="forgotPasswordModal" style="display: none; position: fixed; inset: 0; background: rgba(15, 23, 42, 0.6); z-index: 9999; align-items: center; justify-content: center; backdrop-filter: blur(4px);">
+    <div style="background: white; border-radius: var(--radius-lg); width: 100%; max-width: 440px; padding: 2rem; box-shadow: var(--shadow-lg); position: relative;">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem;">
+            <h3 style="font-family: var(--font-heading); font-size: 1.15rem; font-weight: 800; margin: 0; color: var(--text-main); display: flex; align-items: center; gap: 0.5rem;">
+                <i class="fa-solid fa-key" style="color: var(--primary);"></i> Password Reset
+            </h3>
+            <button type="button" style="background: none; border: none; font-size: 1.25rem; color: var(--text-light); cursor: pointer;" onclick="document.getElementById('forgotPasswordModal').style.display='none'">
+                <i class="fa-solid fa-xmark"></i>
+            </button>
+        </div>
+        <p style="font-size: 0.88rem; color: var(--text-muted); line-height: 1.5; margin-bottom: 1.25rem;">
+            Self-service password recovery is managed by your organization's administrator. If you forgot your password, please reach out to <strong style="color: var(--text-main);">support@jobsnap.local</strong> or contact your system administrator to request a credential reset.
+        </p>
+        <button type="button" class="btn btn-primary" style="width: 100%; padding: 0.75rem;" onclick="document.getElementById('forgotPasswordModal').style.display='none'">
+            Close
+        </button>
     </div>
 </div>
 {% endblock %}

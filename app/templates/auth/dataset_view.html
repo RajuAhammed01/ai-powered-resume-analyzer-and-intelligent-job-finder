@@ -2,8 +2,19 @@
 
 {% block content %}
 <div style="margin-bottom: 2rem;">
-    <div class="hero-tag" style="background: #ecfdf5; color: #047857;">
-        <i class="fa-solid fa-database"></i> Data Architecture
+    <div style="display: flex; gap: 0.5rem; align-items: center; margin-bottom: 0.5rem;">
+        <div class="hero-tag" style="background: #ecfdf5; color: #047857;">
+            <i class="fa-solid fa-database"></i> Data Architecture
+        </div>
+        {% if is_admin_view %}
+        <span class="badge-pill" style="background: #fee2e2; color: #991b1b; font-weight: 700; font-size: 0.75rem;">
+            <i class="fa-solid fa-user-shield"></i> Administrator Global View
+        </span>
+        {% else %}
+        <span class="badge-pill" style="background: #eff6ff; color: #1e40af; font-weight: 700; font-size: 0.75rem;">
+            <i class="fa-solid fa-lock"></i> Personal Account Scope (Privacy Protected)
+        </span>
+        {% endif %}
     </div>
     <div style="display: flex; justify-content: space-between; align-items: flex-start; flex-wrap: wrap; gap: 1rem;">
         <div>
@@ -11,7 +22,11 @@
                 User Authentication & Activity Dataset
             </h1>
             <p style="color: var(--text-muted); font-size: 0.95rem; margin: 0;">
-                Structured dataset storing user signups, dates, hashed passwords (hashmap index), and login audit trails.
+                {% if is_admin_view %}
+                Aggregated system audit records, signup timestamps, and login activity (credentials cryptographically secured).
+                {% else %}
+                Your individual account authentication records, signup timestamps, and login audit trails.
+                {% endif %}
             </p>
         </div>
         <div style="display: flex; gap: 0.75rem;">
@@ -29,13 +44,13 @@
 <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 1.25rem; margin-bottom: 2rem;">
     <div class="card-panel">
         <div style="font-size: 0.8rem; color: var(--text-muted); text-transform: uppercase; font-weight: 700; margin-bottom: 0.5rem;">
-            Total Registered Users
+            {{ 'Total Registered Users' if is_admin_view else 'Account Scope' }}
         </div>
         <div style="font-size: 1.8rem; font-weight: 800; color: var(--primary);">
             {{ summary.total_registered_users }}
         </div>
         <div style="font-size: 0.8rem; color: var(--text-muted); margin-top: 0.25rem;">
-            Indexed by Email Hashmap
+            {{ 'Indexed by Email Hashmap' if is_admin_view else 'Personal Account Record' }}
         </div>
     </div>
 
@@ -98,7 +113,7 @@
                         <th style="padding: 0.75rem 1rem;">Signup Date</th>
                         <th style="padding: 0.75rem 1rem;">Last Login Date</th>
                         <th style="padding: 0.75rem 1rem;">Logins</th>
-                        <th style="padding: 0.75rem 1rem;">Password Hash (Stored Securely)</th>
+                        <th style="padding: 0.75rem 1rem;">Security Status</th>
                     </tr>
                 </thead>
                 <tbody>
@@ -127,8 +142,10 @@
                                 {{ u.total_logins }}
                             </span>
                         </td>
-                        <td style="padding: 0.85rem 1rem; font-family: monospace; font-size: 0.75rem; color: var(--text-muted); max-width: 250px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;" title="{{ u.password_hash }}">
-                            {{ u.password_hash }}
+                        <td style="padding: 0.85rem 1rem;">
+                            <span class="badge-pill" style="background: #ecfdf5; color: #047857; font-size: 0.78rem; font-weight: 600;">
+                                <i class="fa-solid fa-shield-halved"></i> PBKDF2/scrypt Encrypted
+                            </span>
                         </td>
                     </tr>
                     {% endfor %}

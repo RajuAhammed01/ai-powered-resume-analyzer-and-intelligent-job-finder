@@ -318,11 +318,11 @@ def get_dataset_jobs(role: str = "", location: str = "Remote", limit: int = 25) 
     """Retrieve and rank benchmark jobs from the local dataset."""
     all_jobs = _load_benchmark_dataset_jobs()
     if not role or role.lower() in ["software engineer", "developer", "all"]:
-        return all_jobs[:limit]
+        return [dict(j) for j in all_jobs[:limit]]
 
     role_terms = [t.strip().lower() for t in re.findall(r"[a-zA-Z]+", role) if len(t.strip()) > 2]
     if not role_terms:
-        return all_jobs[:limit]
+        return [dict(j) for j in all_jobs[:limit]]
 
     scored = []
     for job in all_jobs:
@@ -336,4 +336,4 @@ def get_dataset_jobs(role: str = "", location: str = "Remote", limit: int = 25) 
         scored.append((score, job))
 
     scored.sort(key=lambda x: x[0], reverse=True)
-    return [job for _, job in scored][:limit]
+    return [dict(job) for _, job in scored][:limit]

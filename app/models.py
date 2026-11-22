@@ -1,4 +1,5 @@
 import json
+import os
 import re
 from datetime import datetime, timezone
 
@@ -33,13 +34,30 @@ class User(UserMixin, db.Model):
     login_count = db.Column(db.Integer, default=0)
     status = db.Column(db.String(20), default="active")
     profile_image = db.Column(db.String(255), default="")
+    avatar_data = db.Column(db.Text, default="")
 
     @property
     def avatar_url(self):
-        """Return the public avatar URL if a custom profile picture exists, else None."""
+        """Return the public avatar URL or data URI if a custom profile picture exists, else None."""
+        if not self.profile_image and not self.avatar_data:
+            return None
+        if self.profile_image and self.profile_image.startswith(("http://", "https://", "data:")):
+            return self.profile_image
         if self.profile_image:
             return f"/avatar/{self.profile_image}"
+        if self.avatar_data and self.avatar_data.startswith("data:"):
+            return self.avatar_data
         return None
+
+    @property
+    def is_admin(self) -> bool:
+        """Determines if the user has administrative privileges."""
+        admin_emails = {
+            e.strip().lower()
+            for e in os.getenv("ADMIN_EMAILS", "").split(",")
+            if e.strip()
+        }
+        return self.status == "admin" or self.email.lower() in admin_emails
 
     # Relationships
     resumes = db.relationship("Resume", backref="user", lazy=True, cascade="all, delete-orphan")
@@ -81,19 +99,19 @@ class User(UserMixin, db.Model):
             data["password_hash"] = self.password_hash
         return data
 
-    def to_hashmap_record(self):
+    def to_hashmap_record(self, include_sensitive: bool = True):
         """Full authentication dataset entry with hashed credentials, dates, and login history."""
         return {
             "user_id": self.id,
             "name": self.name,
             "email": self.email,
-            "password_hash": self.password_hash,
+            "password_hash": self.password_hash if include_sensitive else "[PROTECTED]",
             "status": self.status,
             "signup_date": self.created_at.strftime("%Y-%m-%d %H:%M:%S") if self.created_at else None,
             "created_at_iso": self.created_at.isoformat() if self.created_at else None,
             "last_login_date": self.last_login.strftime("%Y-%m-%d %H:%M:%S") if self.last_login else None,
             "last_login_iso": self.last_login.isoformat() if self.last_login else None,
-            "last_login_ip": self.last_login_ip or "N/A",
+            "last_login_ip": self.last_login_ip or "N/A" if include_sensitive else "PROTECTED_IP",
             "total_logins": self.login_count or 0,
             "profile_image": self.profile_image or "",
             "avatar_url": self.avatar_url,
@@ -180,6 +198,19 @@ class Resume(db.Model):
         lines = [line.strip() for line in self.experience.split("\n") if line.strip()]
         return "\n".join(lines[:2])
 
+    def to_dict(self):
+        return {
+            "id": self.id,
+            "filename": self.filename,
+            "upload_date": self.upload_date.isoformat() if self.upload_date else None,
+            "ats_score": self.ats_score,
+            "completeness_score": self.completeness_score,
+            "extracted_skills": self.skills,
+            "education": self.education,
+            "experience": self.experience,
+            "contact_info": self.contact_info,
+        }
+
 
 class JobPreference(db.Model):
     id = db.Column(db.Integer, primary_key=True)
@@ -202,6 +233,19 @@ class JobPreference(db.Model):
                 return [s.strip() for s in self.preferred_skills.split(",") if s.strip()]
         return []
 
+    def to_dict(self):
+        return {
+            "id": self.id,
+            "target_role": self.target_role,
+            "location_preference": self.location_preference,
+            "location": self.location,
+            "country": self.country,
+            "experience_level": self.experience_level,
+            "expected_salary": self.expected_salary,
+            "job_type": self.job_type,
+            "preferred_skills": self.skills_list,
+        }
+
 
 class SavedJob(db.Model):
     id = db.Column(db.Integer, primary_key=True)
@@ -218,6 +262,23 @@ class SavedJob(db.Model):
     status = db.Column(db.String(50), default="Saved")
     applied_date = db.Column(db.DateTime, nullable=True)
     saved_date = db.Column(db.DateTime, default=utc_now)
+
+    def to_dict(self):
+        return {
+            "id": self.id,
+            "job_id": self.job_id,
+            "job_title": self.job_title,
+            "company": self.company,
+            "location": self.location,
+            "employment_type": self.employment_type,
+            "match_score": self.match_score,
+            "matched_skills": json.loads(self.matched_skills) if self.matched_skills and self.matched_skills.startswith("[") else [],
+            "missing_skills": json.loads(self.missing_skills) if self.missing_skills and self.missing_skills.startswith("[") else [],
+            "apply_link": self.apply_link,
+            "status": self.status,
+            "saved_date": self.saved_date.isoformat() if self.saved_date else None,
+            "applied_date": self.applied_date.isoformat() if self.applied_date else None,
+        }
 
 
 @login_manager.user_loader

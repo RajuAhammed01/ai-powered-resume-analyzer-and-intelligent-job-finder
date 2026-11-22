@@ -16,6 +16,7 @@ from app.services.job_validator import (
     is_valid_apply_url,
     generate_job_id,
     GLOBAL_JOBS_REGISTRY,
+    clean_job_for_registry,
     find_job_by_identifier,
 )
 
@@ -111,14 +112,16 @@ def results():
         location = pref.location or "Remote"
 
     # Fetch live real-time job listings tailored to candidate's domain & country/company filter
-    jobs = fetch_jobs(
+    jobs_raw = fetch_jobs(
         target_role,
         location,
         source=source_query,
         country=selected_country,
         company_filter=company_query,
     )
-    for index, job in enumerate(jobs):
+    jobs = []
+    for index, raw_job in enumerate(jobs_raw):
+        job = dict(raw_job)
         description = job.get("job_description", "")
         extracted_job_skills = extract_skills(description)
         existing_skills = job.get("job_skills") or []
@@ -167,6 +170,7 @@ def results():
         job["strong_skills"] = analysis.get("strong_skills", [])
         job["missing_skills_detailed"] = analysis.get("missing_skills_detailed", [])
         job["detailed_diagnostic"] = analysis.get("detailed_diagnostic", {})
+        jobs.append(job)
 
     # Filter out unrelated roles unless user explicitly queried for something specific
     compatible_jobs = [j for j in jobs if not j.get("is_unrelated_domain", False)]
@@ -257,7 +261,7 @@ def results():
         job["cache_id"] = idx
         if not job.get("job_id"):
             job["job_id"] = generate_job_id(job)
-        GLOBAL_JOBS_REGISTRY[job["job_id"]] = job
+        GLOBAL_JOBS_REGISTRY[job["job_id"]] = clean_job_for_registry(job)
 
     USER_JOBS_CACHE[current_user.id] = display_jobs[:45]
 
@@ -306,9 +310,66 @@ def job_detail(index):
     """
     Job details view with accurate job resolution by stable job_id or verified index.
     """
-    job = find_job_by_identifier(current_user.id, index, USER_JOBS_CACHE)
-    if job:
+    job_raw = find_job_by_identifier(current_user.id, index, USER_JOBS_CACHE)
+    if job_raw:
+        job = dict(job_raw)
         resume = Resume.query.filter_by(user_id=current_user.id).order_by(Resume.upload_date.desc()).first()
+
+        # Candidate-specific dynamic scoring:
+        # If the user has uploaded a resume, evaluate matching skills & scores against THEIR resume.
+        # If the user has no resume, clear any previous user's match data so no cross-user resume data is shown.
+        if resume:
+            resume_skills = json.loads(resume.extracted_skills or "[]") if resume.extracted_skills else []
+            resume_text = resume.extracted_text or ""
+            pref = JobPreference.query.filter_by(user_id=current_user.id).first()
+            cand_prof = detect_candidate_profile(resume_skills, resume_text, current_user.title_role or "")
+            seniority_intent = detect_candidate_seniority_intent(
+                resume_text=resume_text,
+                declared_title=current_user.title_role or "",
+                experience_level_pref=pref.experience_level if pref else "",
+                job_type_pref=pref.job_type if pref else "",
+                education_text=resume.education or "",
+            )
+            candidate_title = current_user.title_role if (current_user.title_role and current_user.title_role != "Job Seeker") else cand_prof["recommended_role"]
+            analysis = analyze_job_skill_gap(
+                resume_skills=resume_skills,
+                job_skills=job.get("job_skills", []),
+                resume_text=resume_text,
+                job_description=job.get("job_description", ""),
+                candidate_title=candidate_title,
+                job_title=job.get("job_title", ""),
+                experience_text=resume.experience or "",
+                education_text=resume.education or "",
+                candidate_domain=cand_prof["primary_domain"],
+                is_internship_seeking=seniority_intent["is_internship_seeking"],
+                employment_type=job.get("job_employment_type", ""),
+            )
+            job["match_score"] = analysis["skill_coverage_score"]
+            job["cosine_score"] = analysis["semantic_score"]
+            job["title_score"] = analysis["title_score"]
+            job["experience_score"] = analysis["experience_score"]
+            job["education_score"] = analysis["education_score"]
+            job["combined_score"] = analysis["final_score"]
+            job["is_unrelated_domain"] = analysis["is_unrelated_domain"]
+            job["domain_info"] = analysis["domain_info"]
+            job["matched_skills"] = analysis["matched_skills"]
+            job["partial_skills"] = analysis["partial_skills"]
+            job["missing_skills"] = analysis["missing_skills"]
+            job["score_explanation"] = analysis["summary_explanation"]
+            job["actionable_advice"] = analysis["actionable_advice"]
+            job["score_breakdown"] = analysis["score_breakdown"]
+            job["skill_points"] = analysis["skill_points"]
+        else:
+            job["matched_skills"] = []
+            job["partial_skills"] = []
+            job["missing_skills"] = job.get("job_skills", [])
+            job["combined_score"] = None
+            job["match_score"] = 0
+            job["cosine_score"] = 0
+            job["title_score"] = 0
+            job["score_breakdown"] = {}
+            job["score_explanation"] = "Upload your resume to see your personalized ATS match score and skill breakdown."
+
         learning_resources = suggest_learning(job.get("missing_skills", []))
         
         # Ensure reliability metadata is attached
@@ -368,7 +429,8 @@ def apply_redirect(index):
     job_title = job.get("job_title", "").strip()
     company = (job.get("employer_name") or job.get("company", "")).strip()
     location = (job.get("job_city") or job.get("location", "Remote")).strip()
-    match_score = int(job.get("combined_score", 85))
+    raw_score = job.get("combined_score")
+    match_score = int(raw_score) if raw_score is not None else 85
     job_id = job.get("job_id", str(index))
 
     # Strict URL validation and normalization
@@ -508,15 +570,14 @@ def save_job():
         db.session.commit()
         flash("Job is already saved.")
 
-    GLOBAL_JOBS_REGISTRY[verified_job_id] = {
+    GLOBAL_JOBS_REGISTRY[verified_job_id] = clean_job_for_registry({
         "job_id": verified_job_id,
         "job_title": job_title,
         "company": company,
         "employer_name": company,
         "job_apply_link": apply_link,
         "location": location,
-        "combined_score": match_score,
-    }
+    })
 
     if (
         request.is_json
@@ -557,7 +618,8 @@ def remove_saved_job(id):
 def update_job_status(id):
     job = db.session.get(SavedJob, id)
     if job and job.user_id == current_user.id:
-        new_status = (request.json.get("status") if request.is_json else request.form.get("status", "Saved")).strip()
+        raw_status = (request.json.get("status") if request.is_json and request.json else None) or request.form.get("status", "Saved")
+        new_status = (raw_status or "Saved").strip()
         job.status = new_status
         if new_status == "Applied" and not job.applied_date:
             job.applied_date = utc_now()
@@ -569,4 +631,6 @@ def update_job_status(id):
         ):
             return jsonify({"success": True, "id": id, "status": new_status, "message": f"Status updated to {new_status}"})
         flash(f"Updated status for '{job.job_title}' to '{new_status}'.")
+    elif request.is_json or request.headers.get("Accept") == "application/json":
+        return jsonify({"success": False, "error": "Job not found or unauthorized"}), 404
     return redirect(request.referrer or url_for("jobs.saved_jobs"))

@@ -25,7 +25,8 @@ CREATE TABLE IF NOT EXISTS "user" (
     last_login_ip VARCHAR(45) DEFAULT '',
     login_count INTEGER DEFAULT 0,
     status VARCHAR(20) DEFAULT 'active',
-    profile_image VARCHAR(255) DEFAULT ''
+    profile_image VARCHAR(255) DEFAULT '',
+    avatar_data TEXT DEFAULT ''
 );
 
 CREATE INDEX IF NOT EXISTS ix_user_email ON "user" (email);

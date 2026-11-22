@@ -1,6 +1,33 @@
-import spacy
-from spacy.tokens import DocBin
-from spacy.training import Example
+"""
+Offline spaCy Named Entity Recognition (NER) training script for resume skill extraction.
+
+Requirements:
+    pip install -r requirements-dev.txt
+"""
+
+import sys
+
+try:
+    import spacy
+    from spacy.tokens import DocBin
+    from spacy.training import Example
+except ImportError:
+    spacy = None
+    DocBin = None
+    Example = None
+
+
+def check_spacy_installed():
+    """Verify spaCy is installed before attempting NER training."""
+    if spacy is None:
+        raise ModuleNotFoundError(
+            "spaCy is not installed in the current Python environment.\n"
+            "To train offline NER models, install development & ML dependencies:\n"
+            "    pip install -r requirements-dev.txt\n"
+            "or:\n"
+            "    pip install spacy"
+        )
+
 
 # Dummy training data for NER
 TRAIN_DATA = [
@@ -8,7 +35,10 @@ TRAIN_DATA = [
     ("Data scientist skilled in Pandas, Machine Learning, and Python.", {"entities": [(26, 32, "SKILL"), (34, 50, "SKILL"), (56, 62, "SKILL")]}),
 ]
 
+
 def train_spacy_ner(model=None, output_dir="models/ner_model", n_iter=10):
+    check_spacy_installed()
+
     if model is not None:
         nlp = spacy.load(model)
     else:
@@ -37,5 +67,11 @@ def train_spacy_ner(model=None, output_dir="models/ner_model", n_iter=10):
     nlp.to_disk(output_dir)
     print(f"Saved model to {output_dir}")
 
+
 if __name__ == "__main__":
+    try:
+        check_spacy_installed()
+    except ModuleNotFoundError as e:
+        print(f"\n[ERROR] {e}\n", file=sys.stderr)
+        sys.exit(1)
     train_spacy_ner()

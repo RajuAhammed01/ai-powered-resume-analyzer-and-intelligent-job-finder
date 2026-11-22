@@ -137,6 +137,13 @@ class TestDashboardUI(unittest.TestCase):
         self.assertIn("Matching Is Not Active", html)
         self.assertIn("No Skill Gap Data Available", html)
 
+        # Zero-state metrics should not display fabricated numbers
+        self.assertNotIn("48%", html)
+        self.assertIn("--", html)
+        self.assertIn("Tracked Jobs", html)
+        # Verify 0 tracked jobs
+        self.assertIn('<div class="stat-val">0</div>', html)
+
 if __name__ == "__main__":
     unittest.main()
 

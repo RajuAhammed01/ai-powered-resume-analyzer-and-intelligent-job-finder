@@ -95,7 +95,7 @@
 
                 <div style="margin-bottom: 1.5rem; font-size: 0.85rem;">
                     <label style="display: flex; align-items: center; gap: 0.5rem; color: var(--text-muted); cursor: pointer;">
-                        <input type="checkbox" required style="accent-color: var(--primary);"> I agree to the <a href="#" style="color: var(--primary); text-decoration: none;">Terms of Service</a> and <a href="#" style="color: var(--primary); text-decoration: none;">Privacy Policy</a>
+                        <input type="checkbox" required style="accent-color: var(--primary);"> I agree to the <a href="javascript:void(0)" onclick="openTermsModal('terms')" style="color: var(--primary); text-decoration: none; font-weight: 600;">Terms of Service</a> and <a href="javascript:void(0)" onclick="openTermsModal('privacy')" style="color: var(--primary); text-decoration: none; font-weight: 600;">Privacy Policy</a>
                     </label>
                 </div>
 
@@ -112,4 +112,40 @@
         </div>
     </div>
 </div>
+
+<!-- Terms & Privacy Modal -->
+<div id="legalModal" style="display: none; position: fixed; inset: 0; background: rgba(15, 23, 42, 0.6); z-index: 9999; align-items: center; justify-content: center; backdrop-filter: blur(4px);">
+    <div style="background: white; border-radius: var(--radius-lg); width: 100%; max-width: 520px; padding: 2rem; box-shadow: var(--shadow-lg); position: relative; max-height: 85vh; overflow-y: auto;">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem;">
+            <h3 id="legalModalTitle" style="font-family: var(--font-heading); font-size: 1.15rem; font-weight: 800; margin: 0; color: var(--text-main);">Terms of Service</h3>
+            <button type="button" style="background: none; border: none; font-size: 1.25rem; color: var(--text-light); cursor: pointer;" onclick="document.getElementById('legalModal').style.display='none'">
+                <i class="fa-solid fa-xmark"></i>
+            </button>
+        </div>
+        <div id="legalModalContent" style="font-size: 0.85rem; color: var(--text-muted); line-height: 1.6; margin-bottom: 1.5rem;">
+        </div>
+        <button type="button" class="btn btn-primary" style="width: 100%; padding: 0.75rem;" onclick="document.getElementById('legalModal').style.display='none'">
+            I Understand
+        </button>
+    </div>
+</div>
+
+<script>
+function openTermsModal(type) {
+    var title = document.getElementById('legalModalTitle');
+    var content = document.getElementById('legalModalContent');
+    if (type === 'privacy') {
+        title.innerText = 'Privacy Policy';
+        content.innerHTML = '<p><strong>Data Protection & Privacy</strong></p>' +
+            '<p>JobSnap respects your personal privacy. Resumes uploaded to JobSnap are processed solely for parsing skills, calculating match scores, and recommending jobs tailored to your career goals.</p>' +
+            '<p>Your data is not sold to third parties. You maintain full ownership of your data and can export or delete your account records at any time from your Profile & Settings page.</p>';
+    } else {
+        title.innerText = 'Terms of Service';
+        content.innerHTML = '<p><strong>Acceptable Use</strong></p>' +
+            '<p>By creating an account on JobSnap, you agree to submit authentic resume details and use our intelligent matching features in accordance with applicable professional standards.</p>' +
+            '<p>Automated scraping or abusive activity on the matching API is prohibited. JobSnap provides job recommendations based on algorithmic heuristics and does not guarantee employment offers.</p>';
+    }
+    document.getElementById('legalModal').style.display = 'flex';
+}
+</script>
 {% endblock %}

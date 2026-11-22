@@ -5,6 +5,7 @@ import re
 import time
 from flask import (
     Blueprint,
+    Response,
     abort,
     current_app,
     flash,
@@ -26,6 +27,7 @@ from app.services.job_validator import (
     is_valid_apply_url,
     generate_job_id,
     GLOBAL_JOBS_REGISTRY,
+    clean_job_for_registry,
 )
 from app.services.job_api import fetch_jobs
 from app.services.profile_detector import detect_candidate_profile, detect_candidate_seniority_intent, get_job_ordering_tuple
@@ -46,15 +48,47 @@ def _allowed_avatar(filename: str) -> bool:
 
 @main_bp.route("/avatar/<path:filename>")
 def serve_avatar(filename):
-    """Serve uploaded avatar images securely with directory traversal prevention."""
+    """Serve uploaded avatar images securely with directory traversal prevention and DB fallback."""
     avatar_folder = current_app.config.get("AVATAR_FOLDER") or os.path.join(
         current_app.config["UPLOAD_FOLDER"], "avatars"
     )
     safe_name = os.path.basename(filename)
-    full_path = os.path.join(avatar_folder, safe_name)
-    if not os.path.isfile(full_path):
+    if safe_name != filename or not _allowed_avatar(safe_name):
         abort(404)
-    return send_from_directory(avatar_folder, safe_name)
+
+    full_path = os.path.join(avatar_folder, safe_name)
+    if os.path.isfile(full_path):
+        return send_from_directory(avatar_folder, safe_name)
+
+    # Serverless resilience: recover image data from the persistent database
+    from app.models import User
+    user = None
+    if safe_name.startswith("avatar_"):
+        parts = safe_name.split("_")
+        if len(parts) >= 2 and parts[1].isdigit():
+            user = db.session.get(User, int(parts[1]))
+    if not user:
+        user = User.query.filter_by(profile_image=safe_name).first()
+
+    raw_data = getattr(user, "avatar_data", None) or getattr(user, "profile_image", "")
+    if user and raw_data and raw_data.startswith("data:image/"):
+        try:
+            header, encoded = raw_data.split(",", 1)
+            mime = header.split(";")[0].replace("data:", "")
+            img_bytes = base64.b64decode(encoded)
+            try:
+                os.makedirs(avatar_folder, exist_ok=True)
+                with open(full_path, "wb") as f:
+                    f.write(img_bytes)
+            except Exception:
+                pass
+            resp = Response(img_bytes, mimetype=mime)
+            resp.headers["Cache-Control"] = "public, max-age=86400"
+            return resp
+        except Exception:
+            pass
+
+    abort(404)
 
 
 USER_DASHBOARD_CACHE = {}
@@ -95,7 +129,7 @@ def dashboard():
             USER_JOBS_CACHE[current_user.id] = recommended_jobs
             for rj in recommended_jobs:
                 if rj.get("job_id"):
-                    GLOBAL_JOBS_REGISTRY[rj["job_id"]] = rj
+                    GLOBAL_JOBS_REGISTRY[rj["job_id"]] = clean_job_for_registry(rj)
         else:
             pref = JobPreference.query.filter_by(user_id=current_user.id).first()
             resume_skills = resume.skills or []
@@ -202,7 +236,7 @@ def dashboard():
                 job["cache_id"] = idx
                 if not job.get("job_id"):
                     job["job_id"] = generate_job_id(job)
-                GLOBAL_JOBS_REGISTRY[job["job_id"]] = job
+                GLOBAL_JOBS_REGISTRY[job["job_id"]] = clean_job_for_registry(job)
 
             USER_JOBS_CACHE[current_user.id] = display_dashboard_jobs[:25]
             recommended_jobs = display_dashboard_jobs[:3]
@@ -479,14 +513,22 @@ def profile():
                     new_filename = f"avatar_{current_user.id}_{int(time.time())}.{file_ext}"
                     dest_path = os.path.join(avatar_folder, new_filename)
 
+                    buffered = io.BytesIO()
                     if file_ext == "png":
                         if img.mode not in ("RGBA", "RGB"):
                             img = img.convert("RGBA")
                         img.save(dest_path, "PNG", optimize=True)
+                        img.save(buffered, format="PNG", optimize=True)
+                        mime_type = "image/png"
                     else:
                         if img.mode != "RGB":
                             img = img.convert("RGB")
                         img.save(dest_path, "JPEG", quality=90, optimize=True)
+                        img.save(buffered, format="JPEG", quality=90, optimize=True)
+                        mime_type = "image/jpeg"
+
+                    b64_str = base64.b64encode(buffered.getvalue()).decode("utf-8")
+                    data_uri = f"data:{mime_type};base64,{b64_str}"
 
                     # Delete previous avatar if any
                     if current_user.profile_image:
@@ -498,6 +540,7 @@ def profile():
                                 pass
 
                     current_user.profile_image = new_filename
+                    current_user.avatar_data = data_uri
                     db.session.commit()
                     flash("Profile picture updated successfully!", "success")
 
@@ -518,6 +561,7 @@ def profile():
                     except Exception:
                         pass
                 current_user.profile_image = ""
+                current_user.avatar_data = ""
                 db.session.commit()
                 flash("Profile picture removed successfully. Default avatar restored.", "success")
             else:
@@ -546,7 +590,7 @@ def profile():
         if not current_user.linkedin_url and structure.get("linkedin_url"):
             current_user.linkedin_url = structure["linkedin_url"]
             needs_commit = True
-        if not current_user.title_role or current_user.title_role in ["Job Seeker", "Software Engineer"]:
+        if not current_user.title_role or current_user.title_role == "Job Seeker":
             cand_prof = detect_candidate_profile(resume.skills or [], resume.extracted_text or "", structure.get("title_role", ""))
             current_user.title_role = structure.get("title_role") or cand_prof["recommended_role"]
             needs_commit = True

@@ -13,6 +13,7 @@ from app.services.api_client import default_api_client
 from app.services.job_api import _CACHE, fetch_jobs, load_seed_jobs
 from app.services.job_validator import (
     GLOBAL_JOBS_REGISTRY,
+    clean_job_for_registry,
     find_job_by_identifier,
     generate_job_id,
     is_valid_apply_url,
@@ -215,7 +216,7 @@ def search_jobs():
 
         if not job_copy.get("job_id"):
             job_copy["job_id"] = generate_job_id(job_copy)
-        GLOBAL_JOBS_REGISTRY[job_copy["job_id"]] = job_copy
+        GLOBAL_JOBS_REGISTRY[job_copy["job_id"]] = clean_job_for_registry(job_copy)
 
         enriched_jobs.append(job_copy)
 
@@ -276,14 +277,44 @@ def get_job(job_id: str):
     from app.routes.jobs import USER_JOBS_CACHE
 
     user_id = current_user.id if current_user.is_authenticated else None
-    job = find_job_by_identifier(user_id, job_id, USER_JOBS_CACHE)
+    job_raw = find_job_by_identifier(user_id, job_id, USER_JOBS_CACHE)
 
-    if not job:
+    if not job_raw:
         return api_error(
             message=f"Job with identifier '{job_id}' not found.",
             code="JOB_NOT_FOUND",
             status_code=404,
         )
+
+    job = dict(job_raw)
+    from app.models import Resume
+    resume = Resume.query.filter_by(user_id=user_id).order_by(Resume.upload_date.desc()).first() if user_id else None
+    if not resume:
+        job["matched_skills"] = []
+        job["partial_skills"] = []
+        job["missing_skills"] = job.get("job_skills", [])
+        job["combined_score"] = None
+        job["match_score"] = 0
+    else:
+        from app.services.skill_gap import analyze_job_skill_gap
+        resume_skills = resume.skills or []
+        resume_text = resume.extracted_text or ""
+        desc = job.get("job_description", "")
+        cand_prof = detect_candidate_profile(resume_skills, resume_text, getattr(current_user, "title_role", "") or "")
+        analysis = analyze_job_skill_gap(
+            resume_skills=resume_skills,
+            job_skills=job.get("job_skills", []),
+            resume_text=resume_text,
+            job_description=desc,
+            candidate_title=getattr(current_user, "title_role", "") or cand_prof["recommended_role"],
+            job_title=job.get("job_title", ""),
+            candidate_domain=cand_prof["primary_domain"],
+        )
+        job["combined_score"] = analysis["final_score"]
+        job["match_score"] = analysis["skill_coverage_score"]
+        job["matched_skills"] = analysis["matched_skills"]
+        job["partial_skills"] = analysis["partial_skills"]
+        job["missing_skills"] = analysis["missing_skills"]
 
     return api_response(
         data=job,

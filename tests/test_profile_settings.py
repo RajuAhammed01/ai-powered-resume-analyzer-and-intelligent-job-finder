@@ -493,5 +493,48 @@ class TestProfileSettings(unittest.TestCase):
         # Check base topbar avatar
         self.assertIn("topbar-avatar-img", html_dash)
 
+    def test_avatar_serverless_resilience_when_disk_deleted(self):
+        """Simulate Vercel ephemeral container recycling where /tmp/uploads/avatars is wiped."""
+        self.login()
+        img_buf = self._create_test_image(format="PNG")
+        self.client.post(
+            "/profile",
+            data={"action": "upload_avatar", "avatar_file": (img_buf, "cloud_avatar.png")},
+            content_type="multipart/form-data",
+        )
+        with self.app.app_context():
+            user = User.query.filter_by(email="raju@example.com").first()
+            avatar_name = user.profile_image
+            avatar_disk_path = os.path.join(self.app.config["AVATAR_FOLDER"], avatar_name)
+            self.assertTrue(user.avatar_data.startswith("data:image/png;base64,"))
+
+        # Simulate ephemeral container recycling by deleting the local file on disk
+        if os.path.exists(avatar_disk_path):
+            os.remove(avatar_disk_path)
+        self.assertFalse(os.path.exists(avatar_disk_path))
+
+        # Request avatar: backend must seamlessly reconstruct and serve from DB without 404
+        res = self.client.get(f"/avatar/{avatar_name}")
+        self.assertEqual(res.status_code, 200)
+        self.assertEqual(res.content_type, "image/png")
+        self.assertGreater(len(res.data), 0)
+
+    def test_get_profile_preserves_software_engineer_title(self):
+        """Verify visiting GET /profile does not mutate 'Software Engineer' or chosen titles."""
+        self.login()
+        with self.app.app_context():
+            user = User.query.filter_by(email="raju@example.com").first()
+            user.title_role = "Software Engineer"
+            db.session.commit()
+
+        # Issue GET request to /profile
+        res = self.client.get("/profile")
+        self.assertEqual(res.status_code, 200)
+
+        # Verify title_role remains "Software Engineer" and was not overwritten by heuristic
+        with self.app.app_context():
+            user = User.query.filter_by(email="raju@example.com").first()
+            self.assertEqual(user.title_role, "Software Engineer")
+
 if __name__ == "__main__":
     unittest.main()

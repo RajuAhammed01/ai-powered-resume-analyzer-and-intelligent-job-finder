@@ -89,6 +89,56 @@ class TestJobFiltering(unittest.TestCase):
         res_sort = self.client.get("/results?sort=title")
         self.assertEqual(res_sort.status_code, 200)
 
+    def test_update_job_status_null_safe_json(self):
+        with self.app.app_context():
+            user = User.query.filter_by(email="filter@example.com").first()
+            job = SavedJob(
+                user_id=user.id,
+                job_title="Full Stack Engineer",
+                company="TechCorp",
+                location="Remote",
+                status="Saved",
+            )
+            db.session.add(job)
+            db.session.commit()
+            job_id = job.id
+
+        # 1. Send JSON payload with empty dict {} (tests bug fix where status was missing and caused AttributeError)
+        res_empty = self.client.post(
+            f"/update-job-status/{job_id}",
+            json={},
+        )
+        self.assertEqual(res_empty.status_code, 200)
+        data_empty = res_empty.get_json()
+        self.assertTrue(data_empty["success"])
+        self.assertEqual(data_empty["status"], "Saved")
+
+        # 2. Send JSON payload with None status
+        res_none = self.client.post(
+            f"/update-job-status/{job_id}",
+            json={"status": None},
+        )
+        self.assertEqual(res_none.status_code, 200)
+        data_none = res_none.get_json()
+        self.assertTrue(data_none["success"])
+        self.assertEqual(data_none["status"], "Saved")
+
+        # 3. Send valid new status
+        res_applied = self.client.post(
+            f"/update-job-status/{job_id}",
+            json={"status": "Applied"},
+        )
+        self.assertEqual(res_applied.status_code, 200)
+        data_applied = res_applied.get_json()
+        self.assertEqual(data_applied["status"], "Applied")
+
+        # 4. Unknown job ID returns 404
+        res_404 = self.client.post(
+            "/update-job-status/999999",
+            json={"status": "Interview"},
+        )
+        self.assertEqual(res_404.status_code, 404)
+
 if __name__ == "__main__":
     unittest.main()
 

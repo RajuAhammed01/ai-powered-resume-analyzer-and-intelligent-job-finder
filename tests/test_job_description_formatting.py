@@ -207,3 +207,60 @@ def test_job_detail_page_renders_formatted_description():
         assert "Maintain microservices" in html_str
         assert "Optimize queries" in html_str
         assert "Python mastery" in html_str
+
+        # Test attached resume banner displays real resume details
+        assert "Format_Resume.pdf" in html_str
+        assert "ATS Compatibility Score:" in html_str
+
+
+def test_job_detail_ats_compatibility_without_resume():
+    """Verify /job/<id> does NOT display fabricated 85% ATS score or 'Active Verified Resume' when user has no resume."""
+    from app import create_app
+    from app.extensions import db
+    from app.models import User
+    from app.routes.jobs import USER_JOBS_CACHE, GLOBAL_JOBS_REGISTRY
+
+    test_app = create_app(test_config={
+        "TESTING": True,
+        "WTF_CSRF_ENABLED": False,
+        "SQLALCHEMY_DATABASE_URI": "sqlite:///:memory:",
+    })
+
+    client = test_app.test_client()
+
+    with test_app.app_context():
+        db.drop_all()
+        db.create_all()
+        user_no_resume = User(name="No Resume User", email="noresume@test.com")
+        user_no_resume.set_password("SecurePass123!")
+        db.session.add(user_no_resume)
+        db.session.commit()
+
+        client.post("/login", data={"email": "noresume@test.com", "password": "SecurePass123!"})
+
+        job = {
+            "job_id": "test_no_resume_202",
+            "job_title": "Frontend Engineer",
+            "employer_name": "WebCorp",
+            "company": "WebCorp",
+            "job_city": "Remote",
+            "location": "Remote",
+            "job_employment_type": "Full-time",
+            "job_apply_link": "https://careers.webcorp.com/jobs/202",
+            "job_description": "We need React developers.",
+            "source": "Remotive",
+        }
+
+        USER_JOBS_CACHE[user_no_resume.id] = [job]
+        GLOBAL_JOBS_REGISTRY["test_no_resume_202"] = job
+
+        res = client.get("/job/test_no_resume_202")
+        assert res.status_code == 200
+        html = res.get_data(as_text=True)
+
+        # Must not fabricate an 85% score or claim active verified resume
+        assert "Active Verified Resume" not in html
+        assert "ATS Compatibility Score: 85%" not in html
+        assert "No Resume Uploaded" in html
+        assert "Upload a resume" in html
+

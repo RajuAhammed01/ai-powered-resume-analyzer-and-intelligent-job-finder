@@ -14,7 +14,7 @@ from app.services.resume_parser import calculate_ats_score, extract_structure, e
 from app.services.skill_extractor import extract_skills
 
 resume_bp = Blueprint("resume", __name__)
-ALLOWED_EXTENSIONS = {"pdf", "docx", "doc"}
+ALLOWED_EXTENSIONS = {"pdf", "docx"}
 
 
 def allowed_file(filename):
@@ -33,6 +33,10 @@ def upload():
 
             if not allowed_file(file.filename):
                 flash("Only PDF and DOCX files are allowed.")
+                return redirect(request.url)
+
+            if not validate_upload(file, file.filename):
+                flash("Corrupted or invalid file format. Please upload a valid PDF or DOCX file.")
                 return redirect(request.url)
 
             orig_filename = secure_filename(file.filename)
@@ -73,8 +77,8 @@ def upload():
                 current_user.country = structure["country"]
             if structure.get("linkedin_url") and not current_user.linkedin_url:
                 current_user.linkedin_url = structure["linkedin_url"]
-            if not current_user.title_role or current_user.title_role in ["Job Seeker", "Software Engineer"]:
-                current_user.title_role = recommended_role
+            if not current_user.title_role or current_user.title_role == "Job Seeker":
+                current_user.title_role = structure.get("title_role") or recommended_role
             elif structure.get("title_role"):
                 current_user.title_role = structure["title_role"]
 

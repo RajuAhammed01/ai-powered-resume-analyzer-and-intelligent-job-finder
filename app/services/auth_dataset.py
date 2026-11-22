@@ -118,18 +118,23 @@ def record_login_activity(
     return event
 
 
-def build_auth_hashmap() -> dict:
+def build_auth_hashmap(user=None, include_sensitive: bool = True) -> dict:
     """
-    Construct an in-memory hashmap of all registered users keyed by email.
-    Maps: email -> { user_id, name, email, password_hash, signup_date, last_login_date, login_history, ... }
+    Construct an in-memory hashmap of registered users keyed by email.
+    - If user is provided, restricts hashmap strictly to that user's own record.
+    - If include_sensitive is False, masks password hashes and IP records.
     """
     from app.models import User
 
-    users = User.query.all()
+    if user:
+        users = [user]
+    else:
+        users = User.query.all()
+
     auth_hashmap = {}
 
     for u in users:
-        auth_hashmap[u.email.lower()] = u.to_hashmap_record()
+        auth_hashmap[u.email.lower()] = u.to_hashmap_record(include_sensitive=include_sensitive)
 
     return auth_hashmap
 
@@ -218,9 +223,33 @@ def restore_users_from_auth_dataset() -> int:
     return restored_count
 
 
-def get_auth_dataset_summary() -> dict:
-    """Return statistical summary of authentication dataset."""
+def get_auth_dataset_summary(user=None) -> dict:
+    """Return statistical summary of authentication dataset, optionally scoped to a user."""
     from app.models import LoginHistory, User
+
+    if user:
+        total_logins = LoginHistory.query.filter_by(user_id=user.id).count()
+        successful_logins = LoginHistory.query.filter_by(user_id=user.id, status="SUCCESS").count()
+        failed_logins = LoginHistory.query.filter_by(user_id=user.id, status="FAILED").count()
+        latest_signup = user.created_at.strftime("%Y-%m-%d %H:%M:%S") if user.created_at else "None"
+        latest_login_record = (
+            LoginHistory.query.filter_by(user_id=user.id)
+            .order_by(LoginHistory.timestamp.desc())
+            .first()
+        )
+        latest_login = (
+            latest_login_record.timestamp.strftime("%Y-%m-%d %H:%M:%S")
+            if latest_login_record and latest_login_record.timestamp
+            else "None"
+        )
+        return {
+            "total_registered_users": 1,
+            "total_login_attempts": total_logins,
+            "successful_logins": successful_logins,
+            "failed_logins": failed_logins,
+            "latest_signup_date": latest_signup,
+            "latest_login_date": latest_login,
+        }
 
     total_users = User.query.count()
     total_logins = LoginHistory.query.count()

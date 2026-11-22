@@ -19,6 +19,8 @@ def create_app(test_config=None):
     # while allowing plain HTTP (127.0.0.1) locally without SSL warnings or cookie drops
     cookie_secure = (
         bool(os.getenv("VERCEL"))
+        or bool(os.getenv("VERCEL_ENV"))
+        or bool(os.getenv("AWS_LAMBDA_FUNCTION_NAME"))
         or os.getenv("FLASK_ENV") == "production"
         or os.getenv("SESSION_COOKIE_SECURE", "false").lower() in ("true", "1")
     )
@@ -83,6 +85,27 @@ def create_app(test_config=None):
     app.register_blueprint(api_bp, url_prefix="/api", name="api_v0")
     # Allow programmatic REST API communication
     csrf.exempt(api_bp)
+
+    @app.context_processor
+    def inject_deployment_info():
+        from config import IS_VERCEL
+        db_uri = app.config.get("SQLALCHEMY_DATABASE_URI", "")
+        is_ephemeral = IS_VERCEL and ("sqlite" in db_uri.lower() or "/tmp" in db_uri)
+        return {
+            "is_ephemeral_db": is_ephemeral,
+            "is_vercel": IS_VERCEL,
+        }
+
+    @app.after_request
+    def add_security_and_cache_headers(response):
+        # Prevent edge proxies (Vercel CDN, Cloudflare) and browsers from caching
+        # dynamic authenticated HTML pages or API responses across user sessions.
+        # Static assets (/static/...) remain cached.
+        if not request.path.startswith("/static/"):
+            response.headers["Cache-Control"] = "no-cache, no-store, must-revalidate, max-age=0"
+            response.headers["Pragma"] = "no-cache"
+            response.headers["Expires"] = "0"
+        return response
 
     @app.errorhandler(CSRFError)
     def handle_csrf_error(e):
@@ -152,9 +175,17 @@ def create_app(test_config=None):
                 from sqlalchemy import text
                 engine_name = db.engine.name.lower()
                 if "postgres" in engine_name:
-                    db.session.execute(text('ALTER TABLE "user" ADD COLUMN IF NOT EXISTS profile_image VARCHAR(255) DEFAULT \'\''))
+                    db.session.execute(text('ALTER TABLE "user" ADD COLUMN IF NOT EXISTS profile_image TEXT DEFAULT \'\''))
+                    db.session.execute(text('ALTER TABLE "user" ADD COLUMN IF NOT EXISTS avatar_data TEXT DEFAULT \'\''))
                 else:
-                    db.session.execute(text("ALTER TABLE user ADD COLUMN profile_image VARCHAR(255) DEFAULT ''"))
+                    try:
+                        db.session.execute(text("ALTER TABLE user ADD COLUMN profile_image TEXT DEFAULT ''"))
+                    except Exception:
+                        pass
+                    try:
+                        db.session.execute(text("ALTER TABLE user ADD COLUMN avatar_data TEXT DEFAULT ''"))
+                    except Exception:
+                        pass
                 db.session.commit()
             except Exception:
                 db.session.rollback()

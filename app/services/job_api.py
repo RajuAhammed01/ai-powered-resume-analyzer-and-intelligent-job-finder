@@ -11,6 +11,7 @@ from app.services.job_validator import (
     is_valid_apply_url,
     generate_job_id,
     GLOBAL_JOBS_REGISTRY,
+    clean_job_for_registry,
 )
 from app.services.job_scraper import (
     scrape_live_jobs,
@@ -41,7 +42,7 @@ def load_seed_jobs() -> list[dict]:
     """Load high-speed pre-verified tech jobs seed to eliminate cold-start network latency."""
     global _SEED_JOBS_CACHE
     if _SEED_JOBS_CACHE is not None:
-        return _SEED_JOBS_CACHE
+        return [dict(j) for j in _SEED_JOBS_CACHE]
     if os.path.exists(SEED_JOBS_FILE):
         try:
             with open(SEED_JOBS_FILE, "r", encoding="utf-8") as f:
@@ -49,13 +50,13 @@ def load_seed_jobs() -> list[dict]:
                 for j in raw_seeds:
                     if not j.get("job_id"):
                         j["job_id"] = generate_job_id(j)
-                    GLOBAL_JOBS_REGISTRY[j["job_id"]] = j
+                    GLOBAL_JOBS_REGISTRY[j["job_id"]] = clean_job_for_registry(j)
                 _SEED_JOBS_CACHE = raw_seeds
-                return _SEED_JOBS_CACHE
+                return [dict(j) for j in _SEED_JOBS_CACHE]
         except Exception as e:
             logger.warning(f"Failed to load verified jobs seed: {e}")
     _SEED_JOBS_CACHE = []
-    return _SEED_JOBS_CACHE
+    return [dict(j) for j in _SEED_JOBS_CACHE]
 
 
 def fetch_adzuna_jobs(role: str, location: str, limit: int = 15) -> list[dict]:
@@ -190,7 +191,7 @@ def fetch_jobs(
     if cache_key in _CACHE:
         cached_data, timestamp = _CACHE[cache_key]
         if time.time() - timestamp < CACHE_TTL and cached_data:
-            return cached_data
+            return [dict(j) for j in cached_data]
 
     raw_jobs = []
 
@@ -212,14 +213,14 @@ def fetch_jobs(
                 job["job_apply_link"] = raw_url
                 if not job.get("job_id"):
                     job["job_id"] = generate_job_id(job)
-                GLOBAL_JOBS_REGISTRY[job["job_id"]] = job
+                GLOBAL_JOBS_REGISTRY[job["job_id"]] = clean_job_for_registry(job)
                 key = (title.lower(), comp.lower())
                 if key not in seen_bd:
                     seen_bd.add(key)
                     final_bd.append(job)
             if final_bd:
                 _CACHE[cache_key] = (final_bd, time.time())
-            return final_bd
+            return [dict(j) for j in final_bd]
 
     # 3. Query Real-Time Web Providers for authentic live jobs with active direct application links
     live_scraped = []
@@ -288,7 +289,7 @@ def fetch_jobs(
                 attach_reliability_to_job(job)
             except Exception:
                 pass
-        GLOBAL_JOBS_REGISTRY[job["job_id"]] = job
+        GLOBAL_JOBS_REGISTRY[job["job_id"]] = clean_job_for_registry(job)
 
         key = (title.lower(), comp.lower())
         if key not in seen:
@@ -299,4 +300,4 @@ def fetch_jobs(
     if final_jobs:
         _CACHE[cache_key] = (final_jobs, time.time())
 
-    return final_jobs
+    return [dict(j) for j in final_jobs]

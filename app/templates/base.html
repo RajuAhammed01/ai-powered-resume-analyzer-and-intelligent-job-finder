@@ -144,6 +144,15 @@
                     {% endif %}
                 {% endwith %}
 
+                {% if is_ephemeral_db %}
+                    <div style="background: #FFFBEB; border: 1px solid #FCD34D; border-radius: 8px; padding: 0.75rem 1rem; margin-bottom: 1.25rem; font-size: 0.85rem; color: #92400E; display: flex; align-items: center; justify-content: space-between; gap: 0.75rem;">
+                        <div style="display: flex; align-items: center; gap: 0.65rem;">
+                            <i class="fa-solid fa-triangle-exclamation" style="color: #D97706; font-size: 1rem;"></i>
+                            <span><strong>Vercel Ephemeral Environment Notice:</strong> External DATABASE_URL is not configured. Sessions and uploads are stored in temporary container memory. To persist data across serverless instances, set <code style="background: #FEF3C7; padding: 0.1rem 0.35rem; border-radius: 4px;">DATABASE_URL</code> in Vercel settings.</span>
+                        </div>
+                    </div>
+                {% endif %}
+
                 {% block content %}{% endblock %}
             </main>
         </div>
@@ -214,9 +223,9 @@
             </div>
         </div>
         <div style="display: flex; gap: 2rem;">
-            <a href="#">About</a>
-            <a href="https://github.com/RajuAhammed01" target="_blank" rel="noopener noreferrer">GitHub</a>
-            <a href="#">License</a>
+            <a href="{{ url_for('main.index') }}#features">About</a>
+            <a href="https://github.com/RajuAhammed01/AI-Powered-Resume-Analyzer-and-Intelligent-Job-Finder" target="_blank" rel="noopener noreferrer">GitHub</a>
+            <a href="https://opensource.org/licenses/MIT" target="_blank" rel="noopener noreferrer">License</a>
         </div>
         <div>
             © 2026 JobSnap. All rights reserved.

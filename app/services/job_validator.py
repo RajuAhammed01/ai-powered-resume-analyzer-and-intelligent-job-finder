@@ -182,13 +182,47 @@ def verify_jobs_batch(jobs: list[dict], default_domain: str = "") -> list[dict]:
     return jobs
 
 
+def clean_job_for_registry(job: dict) -> dict:
+    """
+    Return a clean dictionary representation of a job listing for global storage.
+    Explicitly strips any candidate-specific scoring, matched skills, or advice
+    so that candidate data never leaks across user sessions or requests.
+    """
+    if not job or not isinstance(job, dict):
+        return {}
+    sanitized = dict(job)
+    for field in (
+        "matched_skills",
+        "partial_skills",
+        "missing_skills",
+        "combined_score",
+        "match_score",
+        "cosine_score",
+        "title_score",
+        "experience_score",
+        "education_score",
+        "score_explanation",
+        "actionable_advice",
+        "score_breakdown",
+        "skill_points",
+        "strong_skills",
+        "missing_skills_detailed",
+        "detailed_diagnostic",
+    ):
+        sanitized.pop(field, None)
+    return sanitized
+
+
 def _return_with_reliability(job: dict | None) -> dict | None:
-    if job and isinstance(job, dict) and "reliability" not in job:
-        try:
-            from app.services.job_verifier import attach_reliability_to_job
-            attach_reliability_to_job(job)
-        except Exception:
-            pass
+    if job and isinstance(job, dict):
+        job_copy = dict(job)
+        if "reliability" not in job_copy:
+            try:
+                from app.services.job_verifier import attach_reliability_to_job
+                attach_reliability_to_job(job_copy)
+            except Exception:
+                pass
+        return job_copy
     return job
 
 

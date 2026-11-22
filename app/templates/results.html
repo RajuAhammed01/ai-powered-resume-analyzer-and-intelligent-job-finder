@@ -322,8 +322,8 @@
                 </div>
 
                 <div style="text-align: right; margin-left: 0.5rem; flex-shrink: 0;">
-                    <span class="badge-pill {% if job.get('combined_score', 0) >= 70 %}badge-match-high{% elif job.get('combined_score', 0) >= 45 %}badge-match-med{% else %}badge-match-low{% endif %}">
-                        {{ job.get('combined_score', 0) }}% Match
+                    <span class="badge-pill {% if (job.get('combined_score') or 0) >= 70 %}badge-match-high{% elif (job.get('combined_score') or 0) >= 45 %}badge-match-med{% else %}badge-match-low{% endif %}">
+                        {{ job.get('combined_score') or 0 }}% Match
                     </span>
                     <div style="font-size: 0.72rem; color: var(--text-muted); margin-top: 0.2rem;">
                         Coverage {{ job.score_breakdown.skill_coverage_pct if job.score_breakdown else job.match_score }}% • Fit {{ job.score_breakdown.responsibilities_pct if (job.score_breakdown and job.score_breakdown.responsibilities_pct is not none) else (job.cosine_score or job.combined_score) }}%
@@ -433,8 +433,8 @@
                         {% endif %}
                     </div>
                 </div>
-                <span class="badge-pill {% if active_job.get('combined_score', 0) >= 70 %}badge-match-high{% elif active_job.get('combined_score', 0) >= 45 %}badge-match-med{% else %}badge-match-low{% endif %}">
-                    {{ active_job.get('combined_score', 85) }}% Match
+                <span class="badge-pill {% if (active_job.get('combined_score') or 0) >= 70 %}badge-match-high{% elif (active_job.get('combined_score') or 0) >= 45 %}badge-match-med{% else %}badge-match-low{% endif %}">
+                    {{ active_job.get('combined_score') or 0 }}% Match
                 </span>
             </div>
 

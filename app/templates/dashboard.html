@@ -121,14 +121,18 @@
                     {% if resume and top_match_score is not none %}
                         {{ top_match_score }}%
                     {% else %}
-                        48%
+                        --
                     {% endif %}
                 </div>
                 <div class="stat-label">Top Match Score</div>
             </div>
         </div>
         <div style="font-size: 0.75rem; color: #10B981; font-weight: 700; display: flex; align-items: center; gap: 0.2rem;">
-            <i class="fa-solid fa-arrow-up" style="font-size: 0.65rem;"></i> +6%
+            {% if resume and top_match_score is not none %}
+                <i class="fa-solid fa-arrow-up" style="font-size: 0.65rem;"></i> Live
+            {% else %}
+                <span style="color: #94A3B8; font-weight: 500;">No resume</span>
+            {% endif %}
         </div>
     </div>
 
@@ -139,7 +143,7 @@
                 <i class="fa-solid fa-bookmark"></i>
             </div>
             <div>
-                <div class="stat-val">{{ saved_jobs|length if saved_jobs else 1 }}</div>
+                <div class="stat-val">{{ saved_jobs|length if saved_jobs else 0 }}</div>
                 <div class="stat-label">Tracked Jobs</div>
             </div>
         </div>
@@ -192,7 +196,7 @@
             <div style="flex: 1; min-width: 0;">
                 <div style="font-size: 0.72rem; color: #166534; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px;">APPLIED</div>
                 <div style="font-size: 1.5rem; font-weight: 800; color: #0E1B2E; line-height: 1.2;">
-                    {{ pipeline_stats.applied if pipeline_stats else 1 }}
+                    {{ pipeline_stats.applied if pipeline_stats else 0 }}
                 </div>
                 <div style="font-size: 0.72rem; color: #15803D;">Sent applications</div>
             </div>

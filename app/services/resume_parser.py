@@ -76,8 +76,8 @@ def validate_upload(file, filename: str) -> bool:
     ext = filename.rsplit(".", 1)[-1].lower()
     if ext == "pdf":
         return is_valid_pdf(file.stream)
-    if ext == "docx" or ext == "doc":
-        return is_valid_docx(file.stream) or is_valid_pdf(file.stream)
+    if ext == "docx":
+        return is_valid_docx(file.stream)
     return False
 
 

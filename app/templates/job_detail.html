@@ -68,8 +68,8 @@
         </div>
 
         <div style="display: flex; flex-direction: column; align-items: flex-end; gap: 0.75rem;">
-            <span class="badge-pill {% if job.get('combined_score', 0) >= 70 %}badge-match-high{% elif job.get('combined_score', 0) >= 45 %}badge-match-med{% else %}badge-match-low{% endif %}" style="font-size: 1.15rem; padding: 0.55rem 1.35rem; font-weight: 800;">
-                <i class="fa-solid fa-bullseye"></i> {{ job.get('combined_score', 80) }}% Match
+            <span class="badge-pill {% if (job.get('combined_score') or 0) >= 70 %}badge-match-high{% elif (job.get('combined_score') or 0) >= 45 %}badge-match-med{% else %}badge-match-low{% endif %}" style="font-size: 1.15rem; padding: 0.55rem 1.35rem; font-weight: 800;">
+                <i class="fa-solid fa-bullseye"></i> {% if job.get('combined_score') is not none %}{{ job.combined_score }}% Match{% else %}N/A{% endif %}
             </span>
             <div style="display: flex; gap: 0.75rem; flex-wrap: wrap; justify-content: flex-end;">
                 <!-- Primary Direct Apply Button -->
@@ -90,7 +90,7 @@
                     <input type="hidden" name="company" value="{{ job.get('employer_name') or job.get('company', '') }}">
                     <input type="hidden" name="location" value="{{ job.get('job_city') or job.get('location', 'Remote') }}">
                     <input type="hidden" name="apply_link" value="{{ job.get('job_apply_link', '#') }}">
-                    <input type="hidden" name="match_score" value="{{ job.get('combined_score', 80) }}">
+                    <input type="hidden" name="match_score" value="{{ job.get('combined_score') or 0 }}">
                     <button type="submit" class="btn btn-outline" title="Save Job">
                         <i class="fa-regular fa-bookmark"></i> Save
                     </button>
@@ -108,7 +108,7 @@
         <div id="match-breakdown" style="margin-bottom: 2rem; background: #f8fafc; border: 1px solid var(--border-color); border-radius: var(--radius-md); padding: 1.25rem;">
             <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.75rem; flex-wrap: wrap; gap: 0.5rem;">
                 <h3 style="font-family: var(--font-heading); font-size: 1.15rem; font-weight: 800; color: var(--text-main); margin: 0; display: flex; align-items: center; gap: 0.5rem;">
-                    <i class="fa-solid fa-calculator" style="color: var(--primary);"></i> Why is your match score {{ job.get('combined_score', 80) }}%?
+                    <i class="fa-solid fa-calculator" style="color: var(--primary);"></i> Why is your match score {{ job.get('combined_score') or 0 }}%?
                 </h3>
                 <div style="display: flex; gap: 0.5rem; align-items: center;">
                     {% if job.get('is_unrelated_domain') %}
@@ -221,9 +221,9 @@
                     <span><i class="fa-solid fa-clipboard-check" style="color: var(--primary); margin-right: 0.35rem;"></i> Diagnostic Evaluation Verdict:</span>
                     {% if job.get('is_unrelated_domain') %}
                     <span style="font-size: 0.82rem; font-weight: 700; color: #dc2626;">{{ job.get('detailed_diagnostic', {}).get('verdict', 'Evaluated Match') }}</span>
-                    {% elif job.get('combined_score', 0) >= 80 %}
+                    {% elif (job.get('combined_score') or 0) >= 80 %}
                     <span style="font-size: 0.82rem; font-weight: 700; color: #166534;">{{ job.get('detailed_diagnostic', {}).get('verdict', 'Evaluated Match') }}</span>
-                    {% elif job.get('combined_score', 0) >= 65 %}
+                    {% elif (job.get('combined_score') or 0) >= 65 %}
                     <span style="font-size: 0.82rem; font-weight: 700; color: #1e40af;">{{ job.get('detailed_diagnostic', {}).get('verdict', 'Evaluated Match') }}</span>
                     {% else %}
                     <span style="font-size: 0.82rem; font-weight: 700; color: #b45309;">{{ job.get('detailed_diagnostic', {}).get('verdict', 'Evaluated Match') }}</span>
@@ -517,7 +517,7 @@
             <div style="display: flex; flex-direction: column; gap: 0.85rem; font-size: 0.88rem;">
                 <div style="display: flex; justify-content: space-between;">
                     <span style="color: var(--text-muted);"><i class="fa-solid fa-bullseye"></i> Total Match Score</span>
-                    <strong style="color: var(--primary);">{{ job.get('combined_score', 80) }}%</strong>
+                    <strong style="color: var(--primary);">{{ job.get('combined_score') or 0 }}%</strong>
                 </div>
                 <div style="display: flex; justify-content: space-between;">
                     <span style="color: var(--text-muted);"><i class="fa-solid fa-check-double"></i> Direct Matches</span>
@@ -599,7 +599,7 @@
             <input type="hidden" name="company" value="{{ job.get('employer_name') or job.get('company', '') }}">
             <input type="hidden" name="location" value="{{ job.get('job_city') or job.get('location', 'Remote') }}">
             <input type="hidden" name="apply_link" value="{{ job.get('job_apply_link', '#') }}">
-            <input type="hidden" name="match_score" value="{{ job.get('combined_score', 80) }}">
+            <input type="hidden" name="match_score" value="{{ job.get('combined_score') or 0 }}">
 
             <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 0.85rem; margin-bottom: 1rem;">
                 <div>
@@ -621,18 +621,33 @@
             </div>
 
             <!-- Attached Resume Banner -->
+            {% if resume %}
             <div style="background: #f0fdf4; border: 1px solid #bbf7d0; border-radius: var(--radius-md); padding: 0.75rem 1rem; margin-bottom: 1rem; display: flex; justify-content: space-between; align-items: center;">
                 <div style="display: flex; align-items: center; gap: 0.6rem;">
                     <i class="fa-solid fa-file-pdf" style="color: #16a34a; font-size: 1.35rem;"></i>
                     <div>
-                        <div style="font-weight: 700; font-size: 0.85rem; color: #166534;">{{ resume.filename if resume else 'Active Verified Resume' }}</div>
-                        <div style="font-size: 0.75rem; color: #15803d;">ATS Compatibility Score: {{ resume.ats_score if resume else 85 }}%</div>
+                        <div style="font-weight: 700; font-size: 0.85rem; color: #166534;">{{ resume.filename }}</div>
+                        <div style="font-size: 0.75rem; color: #15803d;">ATS Compatibility Score: {{ resume.ats_score or 0 }}%</div>
                     </div>
                 </div>
-                <span class="badge-pill badge-match-high" style="font-size: 0.75rem;">
-                    {{ job.get('combined_score', 80) }}% Match
+                <span class="badge-pill {% if (job.get('combined_score') or 0) >= 70 %}badge-match-high{% elif (job.get('combined_score') or 0) >= 45 %}badge-match-med{% else %}badge-match-low{% endif %}" style="font-size: 0.75rem;">
+                    {{ job.get('combined_score') or 0 }}% Match
                 </span>
             </div>
+            {% else %}
+            <div style="background: #fffbeb; border: 1px solid #fef3c7; border-radius: var(--radius-md); padding: 0.75rem 1rem; margin-bottom: 1rem; display: flex; justify-content: space-between; align-items: center;">
+                <div style="display: flex; align-items: center; gap: 0.6rem;">
+                    <i class="fa-solid fa-triangle-exclamation" style="color: #d97706; font-size: 1.35rem;"></i>
+                    <div>
+                        <div style="font-weight: 700; font-size: 0.85rem; color: #92400e;">No Resume Uploaded</div>
+                        <div style="font-size: 0.75rem; color: #b45309;"><a href="{{ url_for('resume.upload') }}" style="color: #b45309; text-decoration: underline; font-weight: 600;">Upload a resume</a> to calculate ATS compatibility.</div>
+                    </div>
+                </div>
+                <span class="badge-pill" style="font-size: 0.75rem; background: #fef3c7; color: #92400e; border: 1px solid #fde68a;">
+                    No Resume
+                </span>
+            </div>
+            {% endif %}
 
             <!-- Note / Message -->
             <div style="margin-bottom: 1.25rem;">

@@ -123,17 +123,33 @@ class TestAuthDatasetAndVercel(unittest.TestCase):
         self.assertEqual(res.status_code, 200)
         self.assertIn(b"dev@test.com", res.data)
 
-        # Dataset JSON API
+        # Dataset JSON API (Verify password_hash is redacted)
         res = self.client.get("/dataset?format=json")
         self.assertEqual(res.status_code, 200)
         data = json.loads(res.data)
         self.assertIn("users_hashmap", data)
         self.assertIn("dev@test.com", data["users_hashmap"])
+        self.assertEqual(data["users_hashmap"]["dev@test.com"]["password_hash"], "[PROTECTED]")
+        self.assertFalse(data["is_admin"])
+
+        # Verify multi-tenant isolation: create another user and ensure regular user cannot see it
+        with self.app.app_context():
+            other_user = User(name="Other Person", email="other@test.com")
+            other_user.set_password("secretpass1")
+            db.session.add(other_user)
+            db.session.commit()
+
+        res = self.client.get("/dataset?format=json")
+        data = json.loads(res.data)
+        self.assertNotIn("other@test.com", data["users_hashmap"])
 
         # Dataset export JSON file
         res = self.client.get("/export-dataset")
         self.assertEqual(res.status_code, 200)
         self.assertEqual(res.content_type, "application/json")
+        export_content = json.loads(res.data)
+        self.assertNotIn("other@test.com", export_content["users_hashmap"])
+        self.assertEqual(export_content["users_hashmap"]["dev@test.com"]["password_hash"], "[PROTECTED]")
 
         # Privacy-preserving personal data export
         res = self.client.get("/export-my-data")
@@ -142,6 +158,32 @@ class TestAuthDatasetAndVercel(unittest.TestCase):
         user_data = json.loads(res.data)
         self.assertEqual(user_data["email"], "dev@test.com")
         self.assertNotIn("password_hash", user_data)
+        self.assertIn("resumes", user_data)
+        self.assertIn("job_preferences", user_data)
+        self.assertIn("saved_jobs", user_data)
+        self.assertIn("login_activity", user_data)
+
+        # Admin user test: verify admin sees all users with hashes scrubbed
+        with self.app.app_context():
+            admin_user = User(name="Admin User", email="admin@test.com", status="admin")
+            admin_user.set_password("adminpass999")
+            db.session.add(admin_user)
+            db.session.commit()
+
+        self.client.post(
+            "/login",
+            data={"email": "admin@test.com", "password": "adminpass999"},
+            follow_redirects=True,
+        )
+        res = self.client.get("/dataset?format=json")
+        admin_data = json.loads(res.data)
+        self.assertTrue(admin_data["is_admin"])
+        self.assertEqual(admin_data["scope"], "global")
+        self.assertIn("dev@test.com", admin_data["users_hashmap"])
+        self.assertIn("other@test.com", admin_data["users_hashmap"])
+        # Even admin gets protected password hashes, never raw hashes over the wire
+        self.assertEqual(admin_data["users_hashmap"]["admin@test.com"]["password_hash"], "[PROTECTED]")
+        self.assertEqual(admin_data["users_hashmap"]["other@test.com"]["password_hash"], "[PROTECTED]")
 
     def test_vercel_wsgi_entrypoint(self):
         from api.index import app as vercel_app

@@ -86,8 +86,9 @@ class VercelPathMiddleware:
 
 
 # Vercel and WSGI entry point: exposes Flask application as 'app'
+# x_prefix=0 ensures Vercel's internal lambda rewrite destination (/api/index) does not overwrite SCRIPT_NAME
 app = create_app()
-app.wsgi_app = ProxyFix(app.wsgi_app, x_for=1, x_proto=1, x_host=1, x_prefix=1)
+app.wsgi_app = ProxyFix(app.wsgi_app, x_for=1, x_proto=1, x_host=1, x_prefix=0)
 app.wsgi_app = VercelPathMiddleware(app.wsgi_app)
 
 if __name__ == "__main__":

@@ -43,9 +43,11 @@ def preferences():
         pref.job_type = request.form.get("job_type", "Full-time")
 
         skills_raw = request.form.get("preferred_skills", "")
-        if skills_raw:
+        if skills_raw and skills_raw.strip():
             skills_list = [s.strip() for s in skills_raw.split(",") if s.strip()]
             pref.preferred_skills = json.dumps(skills_list)
+        else:
+            pref.preferred_skills = "[]"
 
         db.session.commit()
 

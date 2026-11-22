@@ -35,14 +35,24 @@ class TestResumeAIPages(unittest.TestCase):
         # 1. Landing Page
         res = self.client.get("/")
         self.assertEqual(res.status_code, 200)
+        landing_html = res.get_data(as_text=True)
+        self.assertIn("#features", landing_html)
+        self.assertIn("https://opensource.org/licenses/MIT", landing_html)
 
         # 2. Login Page
         res = self.client.get("/login")
         self.assertEqual(res.status_code, 200)
+        login_html = res.get_data(as_text=True)
+        self.assertIn("forgotPasswordModal", login_html)
+        self.assertNotIn('href="#"', login_html)
 
         # 3. Register Page
         res = self.client.get("/register")
         self.assertEqual(res.status_code, 200)
+        register_html = res.get_data(as_text=True)
+        self.assertIn("legalModal", register_html)
+        self.assertIn("openTermsModal", register_html)
+        self.assertNotIn('href="#"', register_html)
 
     def test_auth_flow_and_protected_pages(self):
         # Login
@@ -76,6 +86,27 @@ class TestResumeAIPages(unittest.TestCase):
         # 11. Profile & Settings Page
         res = self.client.get("/profile")
         self.assertEqual(res.status_code, 200)
+
+    def test_preferences_clearing_preferred_skills(self):
+        self.client.post("/login", data={"email": "raju@example.com", "password": "password123"}, follow_redirects=True)
+        # 1. Update preferences with skills
+        self.client.post("/preferences", data={
+            "target_role": "Python Developer",
+            "preferred_skills": "Python, Django, FastAPI",
+        }, follow_redirects=True)
+        with self.app.app_context():
+            user = User.query.filter_by(email="raju@example.com").first()
+            self.assertEqual(user.job_preference.skills_list, ["Python", "Django", "FastAPI"])
+
+        # 2. Update preferences with empty skills string (must clear preferred_skills to "[]")
+        self.client.post("/preferences", data={
+            "target_role": "Python Developer",
+            "preferred_skills": "",
+        }, follow_redirects=True)
+        with self.app.app_context():
+            user = User.query.filter_by(email="raju@example.com").first()
+            self.assertEqual(user.job_preference.skills_list, [])
+            self.assertEqual(user.job_preference.preferred_skills, "[]")
 
 if __name__ == "__main__":
     unittest.main()
