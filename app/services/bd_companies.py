@@ -93,6 +93,14 @@ BD_TECH_COMPANIES = {
         "location": "Dhaka, Bangladesh",
         "tags": ["cloud", "erp", "crm", "mobile", "flutter", "react", "unity", "dotnet", "aws"],
     },
+    "Nascenia": {
+        "name": "Nascenia",
+        "specialization": "custom web and mobile software development, Ruby on Rails, Python, PHP, AI solutions, and offshore delivery",
+        "website": "https://nascenia.com",
+        "careers_url": "https://nascenia.com/careers/",
+        "location": "Dhaka, Bangladesh",
+        "tags": ["ruby on rails", "python", "react", "node.js", "mobile", "ai/ml", "postgresql", "web development"],
+    },
     "Dynamic Solution Innovators (DSi)": {
         "name": "Dynamic Solution Innovators (DSi)",
         "specialization": "enterprise engineering, AI/ML, DevOps, cloud, and QA",

@@ -127,8 +127,17 @@ def resume_analysis(id):
     target_role = (pref.target_role if pref and pref.target_role and pref.target_role != "Software Engineer" else None) or profile["recommended_role"]
     location = (pref.location if pref else None) or "Remote"
 
+    from app.services.bd_job_scraper import is_bangladesh_resume_or_location
+    is_bd_candidate = is_bangladesh_resume_or_location(
+        text=resume.extracted_text or "",
+        location_val=((pref.location if pref else "") or "") + " " + (current_user.location or ""),
+        phone_val=current_user.phone or "",
+        education_val=resume.education or "",
+    ) or (pref and pref.country and pref.country.lower() in ["bangladesh", "bd"])
+    target_country = "bangladesh" if is_bd_candidate else "all"
+
     # Fetch real live jobs for the user's specific target role
-    jobs = fetch_jobs(target_role, location)
+    jobs = fetch_jobs(target_role, location, country=target_country)
     total_live_jobs = len(jobs) if jobs else 1
 
     missing_freq = {}

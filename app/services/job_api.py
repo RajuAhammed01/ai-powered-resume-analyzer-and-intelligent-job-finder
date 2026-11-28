@@ -227,8 +227,8 @@ def fetch_jobs(
     # 3. Query legitimate live tech jobs from Bangladesh premier technology leaders (live scraped only)
     if is_bd_requested or clean_country in ["bangladesh", "bd"]:
         try:
-            bd_jobs = fetch_bangladesh_jobs(role=clean_role, company_filter=clean_comp, limit=25)
-            raw_jobs.extend(bd_jobs)
+            bd_jobs = fetch_bangladesh_jobs(role=clean_role, company_filter=clean_comp, limit=35)
+            raw_jobs = bd_jobs + raw_jobs
         except Exception as e:
             logger.warning(f"BD jobs fetch error: {e}")
 
@@ -293,8 +293,8 @@ def fetch_jobs(
             seen.add(key)
             final_jobs.append(job)
 
-    # If country is explicitly Bangladesh, prioritize verified Bangladesh jobs, followed by worldwide/remote
-    if clean_country in ["bangladesh", "bd"]:
+    # If candidate or filter indicates Bangladesh, prioritize verified Bangladesh jobs, followed by worldwide/remote
+    if is_bd_requested or clean_country in ["bangladesh", "bd"]:
         final_jobs.sort(
             key=lambda j: (
                 0 if (

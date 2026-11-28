@@ -203,6 +203,7 @@ TRUSTED_ATS_DOMAINS = {
 # Vetted Tech Recruitment Platforms & Legitimate Aggregators
 # ---------------------------------------------------------------------------
 VETTED_PLATFORM_DOMAINS = {
+    "weworkremotely.com",
     "remotive.com",
     "arbeitnow.com",
     "remoteok.com",
@@ -210,6 +211,12 @@ VETTED_PLATFORM_DOMAINS = {
     "jobicy.com",
     "linkedin.com",
     "lemon.io",
+    "bdjobs.com",
+    "jobs.bdjobs.com",
+    "brainstation-23.com",
+    "nascenia.com",
+    "bjitgroup.com",
+    "therapbd.com",
 }
 
 # ---------------------------------------------------------------------------
@@ -558,7 +565,7 @@ def verify_job_reliability(job: dict) -> dict:
             "Caution: This advertisement contains suspicious indicators "
             "(e.g. payment/bKash requests, brand impersonation, or unverified link)."
         )
-    elif score >= 75 and len(risk_signals) == 0:
+    elif (score >= 75 or has_ats_or_official) and not critical_scam_flags and not any("shortener" in r.lower() or "impersonation" in r.lower() or "payment" in r.lower() for r in risk_signals):
         status = STATUS_VERIFIED
         label = "Verified Employer"
         icon = "fa-solid fa-shield-check"
