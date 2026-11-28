@@ -571,10 +571,11 @@ pre, code {
 .landing-links {
   display: flex;
   align-items: center;
-  gap: 2rem;
+  gap: 1.5rem;
 }
 
-.landing-links a {
+.landing-links a.landing-nav-link,
+.landing-links a:not(.btn) {
   text-decoration: none;
   color: var(--text-muted);
   font-weight: 500;
@@ -582,8 +583,42 @@ pre, code {
   transition: var(--transition);
 }
 
-.landing-links a:hover {
+.landing-links a.landing-nav-link:hover,
+.landing-links a:not(.btn):hover {
   color: var(--primary);
+}
+
+/* Specificity overrides for action buttons inside landing links */
+.landing-links a.btn-primary,
+.landing-links .btn-primary {
+  color: #FFFFFF !important;
+  background-color: var(--primary) !important;
+  border-color: var(--primary) !important;
+}
+
+.landing-links a.btn-primary:hover,
+.landing-links a.btn-primary:focus,
+.landing-links .btn-primary:hover,
+.landing-links .btn-primary:focus {
+  color: #FFFFFF !important;
+  background-color: var(--primary-hover) !important;
+  border-color: var(--primary-hover) !important;
+}
+
+.landing-links a.btn-outline,
+.landing-links .btn-outline {
+  color: var(--text-main) !important;
+  background-color: var(--bg-surface) !important;
+  border-color: var(--border-color) !important;
+}
+
+.landing-links a.btn-outline:hover,
+.landing-links a.btn-outline:focus,
+.landing-links .btn-outline:hover,
+.landing-links .btn-outline:focus {
+  color: var(--primary) !important;
+  background-color: var(--bg-subtle) !important;
+  border-color: var(--border-hover) !important;
 }
 
 /* Buttons - Restrained Professional SaaS (8-10px radius) */
@@ -605,14 +640,24 @@ pre, code {
   line-height: 1.4;
 }
 
-.btn-primary {
+.btn-primary,
+a.btn-primary,
+button.btn-primary {
   background-color: var(--primary);
-  color: #FFFFFF;
+  color: #FFFFFF !important;
   border-color: var(--primary);
   box-shadow: 0 1px 2px rgba(40, 100, 180, 0.2);
 }
 
-.btn-primary:hover {
+.btn-primary:hover,
+.btn-primary:focus,
+.btn-primary:active,
+.btn-primary:visited,
+a.btn-primary:hover,
+a.btn-primary:focus,
+a.btn-primary:active,
+a.btn-primary:visited {
+  color: #FFFFFF !important;
   background-color: var(--primary-hover);
   border-color: var(--primary-hover);
   box-shadow: 0 2px 5px rgba(40, 100, 180, 0.25);
