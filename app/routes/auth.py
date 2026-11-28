@@ -75,29 +75,49 @@ def login():
         password = request.form.get("password", "")
         remember = bool(request.form.get("remember"))
 
-        # Support sign-in by registered Email OR Username/Name (case-insensitive)
-        user = User.query.filter(
-            (func.lower(User.email) == identifier.lower()) |
-            (func.lower(User.name) == identifier.lower())
-        ).first()
+        ident = identifier.strip().lower()
+        candidates = []
 
-        # Verify password (including whitespace-tolerant check for copy-paste safety)
-        password_valid = False
-        if user:
-            if user.check_password(password):
-                password_valid = True
-            elif password != password.strip() and user.check_password(password.strip()):
-                password_valid = True
+        # 1. Exact email match (case-insensitive)
+        exact_email_user = User.query.filter(func.lower(User.email) == ident).first()
+        if exact_email_user:
+            candidates.append(exact_email_user)
 
-        if user and password_valid:
+        # 2. Exact full name match (case-insensitive)
+        for u in User.query.filter(func.lower(User.name) == ident).all():
+            if u.id not in [c.id for c in candidates]:
+                candidates.append(u)
+
+        # 3. Email username / local part (e.g. "raju" or "demo" before @)
+        if "@" not in ident:
+            for u in User.query.filter(func.lower(User.email).startswith(ident + "@")).all():
+                if u.id not in [c.id for c in candidates]:
+                    candidates.append(u)
+
+        # 4. First name or name prefix (e.g. "raju" matching "Raju Ahammed")
+        for u in User.query.filter(func.lower(User.name).startswith(ident + " ")).all():
+            if u.id not in [c.id for c in candidates]:
+                candidates.append(u)
+
+        # Verify password against candidates
+        authenticated_user = None
+        for candidate in candidates:
+            if candidate.check_password(password):
+                authenticated_user = candidate
+                break
+            elif password != password.strip() and candidate.check_password(password.strip()):
+                authenticated_user = candidate
+                break
+
+        if authenticated_user:
             # Record successful login date and client details
             record_login_activity(
-                email=user.email,
+                email=authenticated_user.email,
                 status="SUCCESS",
-                user=user,
+                user=authenticated_user,
                 failure_reason="",
             )
-            login_user(user, remember=True)
+            login_user(authenticated_user, remember=True)
             from flask import session
             session.permanent = True
 
@@ -109,18 +129,18 @@ def login():
             return response
 
         # Record failed login attempt in dataset for security auditing
-        reason = "Invalid password" if user else "Account not registered"
+        reason = "Invalid password" if candidates else "Account not registered"
         record_login_activity(
-            email=user.email if user else identifier,
+            email=candidates[0].email if candidates else identifier,
             status="FAILED",
-            user=user,
+            user=candidates[0] if candidates else None,
             failure_reason=reason,
         )
 
-        if not user:
-            flash("No account registered with this email or username. Please click 'Create an account' below to sign up.")
+        if not candidates:
+            flash("No account registered with this email or username. Please check your spelling or click 'Create an account' below.")
         else:
-            flash("Incorrect password. Please verify your password and try again.")
+            flash("Incorrect password. Please verify your password and try again. (Make sure Caps Lock is off)")
 
     return render_template("auth/login.html", is_auth_page=True)
 

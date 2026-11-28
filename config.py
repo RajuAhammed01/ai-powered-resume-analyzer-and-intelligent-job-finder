@@ -111,6 +111,7 @@ class Config:
 
     # Prevent CSRF referer check failures behind Vercel edge proxies while keeping CSRF token verification active
     WTF_CSRF_SSL_STRICT = False
+    WTF_CSRF_TIME_LIMIT = 86400 * 7  # 7 days token validity
 
     # Remember Me cookie hardening
     REMEMBER_COOKIE_NAME = "jobsnap_remember"

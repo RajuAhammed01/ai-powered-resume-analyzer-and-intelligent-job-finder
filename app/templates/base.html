@@ -182,6 +182,7 @@
         </div>
     </header>
 
+    {% if not is_auth_page %}
     {% with messages = get_flashed_messages(with_categories=true) %}
         {% if messages %}
             <div class="content-container" style="padding-bottom: 0;">
@@ -207,6 +208,7 @@
             </div>
         {% endif %}
     {% endwith %}
+    {% endif %}
 
     <main style="flex: 1;">
         {% block content_standalone %}{% endblock %}

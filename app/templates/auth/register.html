@@ -62,9 +62,22 @@
             <h2 style="font-family: var(--font-heading); font-size: 2rem; font-weight: 800; margin-bottom: 0.4rem; color: var(--text-main);">
                 Create an Account
             </h2>
-            <p style="color: var(--text-muted); font-size: 0.925rem; margin-bottom: 2rem;">
+            <p style="color: var(--text-muted); font-size: 0.925rem; margin-bottom: 1.5rem;">
                 Join JobSnap to get started with AI-powered job matching and resume analysis.
             </p>
+
+            {% with messages = get_flashed_messages(with_categories=true) %}
+                {% if messages %}
+                    <div style="margin-bottom: 1.5rem;">
+                        {% for category, message in messages %}
+                            <div style="padding: 0.85rem 1rem; border-radius: 8px; font-size: 0.88rem; display: flex; align-items: flex-start; gap: 0.65rem; margin-bottom: 0.5rem; {% if category in ['danger', 'error'] %}background: #fef2f2; border: 1px solid #fecaca; color: #b91c1c;{% elif category == 'success' %}background: #ecfdf5; border: 1px solid #a7f3d0; color: #047857;{% else %}background: #eff6ff; border: 1px solid #bfdbfe; color: #1d4ed8;{% endif %}">
+                                <i class="fa-solid {% if category in ['danger', 'error'] %}fa-circle-exclamation{% elif category == 'success' %}fa-circle-check{% else %}fa-circle-info{% endif %}" style="margin-top: 0.15rem; flex-shrink: 0;"></i>
+                                <span style="line-height: 1.4;">{{ message }}</span>
+                            </div>
+                        {% endfor %}
+                    </div>
+                {% endif %}
+            {% endwith %}
 
             <form method="POST">
                 <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
@@ -87,9 +100,12 @@
 
                 <div class="form-field">
                     <label class="form-label" for="password">Password</label>
-                    <div class="input-icon-group">
+                    <div class="input-icon-group" style="position: relative;">
                         <i class="fa-solid fa-lock field-icon"></i>
-                        <input type="password" id="password" name="password" class="input-control" placeholder="Create a strong password" minlength="6" required>
+                        <input type="password" id="password" name="password" class="input-control" placeholder="Create a strong password" minlength="6" required style="padding-right: 2.75rem;">
+                        <button type="button" id="toggleRegisterPasswordBtn" onclick="toggleRegisterPasswordVisibility()" style="position: absolute; right: 0.75rem; top: 50%; transform: translateY(-50%); background: none; border: none; color: var(--text-muted); cursor: pointer; padding: 0.25rem; font-size: 0.95rem; z-index: 2;" title="Show / Hide password">
+                            <i class="fa-regular fa-eye" id="toggleRegisterPasswordIcon"></i>
+                        </button>
                     </div>
                     <div style="font-size: 0.78rem; color: var(--text-muted); margin-top: 0.35rem;">Must be at least 6 characters long.</div>
                 </div>
@@ -147,6 +163,20 @@ function openTermsModal(type) {
             '<p>Automated scraping or abusive activity on the matching API is prohibited. JobSnap provides job recommendations based on algorithmic heuristics and does not guarantee employment offers.</p>';
     }
     document.getElementById('legalModal').style.display = 'flex';
+}
+
+function toggleRegisterPasswordVisibility() {
+    const pwdInput = document.getElementById('password');
+    const icon = document.getElementById('toggleRegisterPasswordIcon');
+    if (pwdInput && icon) {
+        if (pwdInput.type === 'password') {
+            pwdInput.type = 'text';
+            icon.className = 'fa-regular fa-eye-slash';
+        } else {
+            pwdInput.type = 'password';
+            icon.className = 'fa-regular fa-eye';
+        }
+    }
 }
 </script>
 {% endblock %}

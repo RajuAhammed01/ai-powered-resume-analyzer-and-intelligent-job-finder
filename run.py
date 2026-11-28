@@ -22,10 +22,11 @@ class VercelPathMiddleware:
         self.wsgi_app = wsgi_app
 
     def __call__(self, environ, start_response):
-        # 1. Ensure https scheme is reflected in serverless requests
-        proto = environ.get("HTTP_X_FORWARDED_PROTO", "https")
-        if proto:
-            environ["wsgi.url_scheme"] = proto
+        # 1. Ensure https scheme is reflected in serverless requests behind reverse proxies
+        if "HTTP_X_FORWARDED_PROTO" in environ:
+            environ["wsgi.url_scheme"] = environ["HTTP_X_FORWARDED_PROTO"]
+        elif os.getenv("VERCEL") or os.getenv("VERCEL_ENV") or os.getenv("AWS_LAMBDA_FUNCTION_NAME"):
+            environ["wsgi.url_scheme"] = "https"
 
         # 2. Reset SCRIPT_NAME to empty string so cookie path and url_for() are always root-relative
         environ["SCRIPT_NAME"] = ""
