@@ -195,32 +195,31 @@ def fetch_jobs(
 
     raw_jobs = []
 
-    # 2. If Bangladesh is targeted, query live web scraper and verified registry for Bangladesh tech leaders
-    if is_bd_requested:
-        bd_jobs = fetch_bangladesh_jobs(role=clean_role, company_filter=clean_comp, limit=45)
-        raw_jobs.extend(bd_jobs)
-        # If user explicitly selected Bangladesh or specific BD company, return exclusively Bangladesh results
-        if clean_country in ["bangladesh", "bd"] or (clean_comp and clean_comp.lower() != "all"):
-            # Deduplicate and register
-            final_bd = []
-            seen_bd = set()
-            for job in raw_jobs:
-                title = job.get("job_title", "").strip()
-                comp = (job.get("employer_name") or job.get("company", "")).strip()
-                raw_url = normalize_apply_url(job.get("job_apply_link", ""))
-                if not raw_url or not title:
-                    continue
-                job["job_apply_link"] = raw_url
-                if not job.get("job_id"):
-                    job["job_id"] = generate_job_id(job)
-                GLOBAL_JOBS_REGISTRY[job["job_id"]] = clean_job_for_registry(job)
-                key = (title.lower(), comp.lower())
-                if key not in seen_bd:
-                    seen_bd.add(key)
-                    final_bd.append(job)
-            if final_bd:
-                _CACHE[cache_key] = (final_bd, time.time())
-            return [dict(j) for j in final_bd]
+    # 2. Always query authentic live tech jobs from Bangladesh premier technology leaders
+    bd_jobs = fetch_bangladesh_jobs(role=clean_role, company_filter=clean_comp, limit=45)
+    raw_jobs.extend(bd_jobs)
+
+    # If user explicitly selected Bangladesh or a specific BD company, return exclusively verified Bangladesh results
+    if clean_country in ["bangladesh", "bd"] or (clean_comp and clean_comp.lower() != "all"):
+        final_bd = []
+        seen_bd = set()
+        for job in raw_jobs:
+            title = job.get("job_title", "").strip()
+            comp = (job.get("employer_name") or job.get("company", "")).strip()
+            raw_url = normalize_apply_url(job.get("job_apply_link", ""))
+            if not raw_url or not title:
+                continue
+            job["job_apply_link"] = raw_url
+            if not job.get("job_id"):
+                job["job_id"] = generate_job_id(job)
+            GLOBAL_JOBS_REGISTRY[job["job_id"]] = clean_job_for_registry(job)
+            key = (title.lower(), comp.lower())
+            if key not in seen_bd:
+                seen_bd.add(key)
+                final_bd.append(job)
+        if final_bd:
+            _CACHE[cache_key] = (final_bd, time.time())
+        return [dict(j) for j in final_bd]
 
     # 3. Query Real-Time Web Providers for authentic live jobs with active direct application links
     live_scraped = []
@@ -238,16 +237,24 @@ def fetch_jobs(
     except Exception as e:
         logger.warning(f"Live scraper fetch error: {e}")
 
-    raw_jobs.extend(live_scraped)
+    # Filter out unknown spam or unverified staffing employers from scraped listings
+    UNKNOWN_SPAM_EMPLOYERS = {
+        "prostaff", "destinusgroup", "legora", "focused", "mdigital ag",
+        "excellent go4", "ylab gmbh", "vinteden", "lemon.io"
+    }
+    for s_job in live_scraped:
+        s_comp = (s_job.get("employer_name") or s_job.get("company", "")).lower()
+        if not any(bad in s_comp for bad in UNKNOWN_SPAM_EMPLOYERS):
+            raw_jobs.append(s_job)
 
-    # 3. Check configured official APIs (Adzuna & JSearch) if credentials present
+    # 4. Check configured official APIs (Adzuna & JSearch) if credentials present
     if clean_source in ["all", "adzuna"]:
         raw_jobs.extend(fetch_adzuna_jobs(clean_role, clean_loc, limit=10))
 
     if clean_source in ["all", "jsearch"]:
         raw_jobs.extend(fetch_jsearch_jobs(clean_role, clean_loc, limit=10))
 
-    # 4. Supplement with pre-verified authentic live tech jobs to guarantee instant zero-wait availability
+    # 5. Supplement with pre-verified authentic tech jobs (Bangladesh leaders + global tech giants)
     seed_jobs = load_seed_jobs()
     role_tokens = [t.lower() for t in clean_role.split() if len(t) > 2]
     matching_seeds = []
@@ -266,7 +273,8 @@ def fetch_jobs(
     if len(raw_jobs) < 10:
         raw_jobs.extend(other_seeds[:10])
 
-    # 5. Deduplicate and ensure all jobs have valid application links
+    # 6. Deduplicate and ensure all jobs have valid application links and verified identity
+    from app.services.bd_companies import BD_TECH_COMPANIES
     final_jobs = []
     seen = set()
 
@@ -278,6 +286,10 @@ def fetch_jobs(
 
         # Reject jobs without a real apply link or empty title
         if not apply_url or not is_valid_apply_url(apply_url) or not title:
+            continue
+
+        # Skip known unverified / broken employers
+        if any(bad in comp.lower() for bad in UNKNOWN_SPAM_EMPLOYERS):
             continue
 
         job["job_apply_link"] = apply_url
@@ -295,6 +307,18 @@ def fetch_jobs(
         if key not in seen:
             seen.add(key)
             final_jobs.append(job)
+
+    # Prioritize Bangladesh premier tech company jobs at the top of results
+    final_jobs.sort(
+        key=lambda j: (
+            0 if (
+                j.get("is_bangladesh")
+                or any(c.lower() in (j.get("company") or "").lower() for c in BD_TECH_COMPANIES)
+                or any(c.lower() in (j.get("employer_name") or "").lower() for c in BD_TECH_COMPANIES)
+            ) else 1,
+            -len(j.get("job_skills") or [])
+        )
+    )
 
     # 6. Cache and return
     if final_jobs:

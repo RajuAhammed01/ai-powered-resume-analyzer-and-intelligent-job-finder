@@ -241,20 +241,21 @@ def results():
     elif sort_query == "company":
         display_jobs.sort(key=lambda j: (j.get("employer_name") or j.get("company", "")).lower())
     else:
-        # Default smart priority ordering (internships first for intern seekers, then match score)
-        # When Bangladesh filter is active, ensure Bangladesh tech companies stay front and center
+        # Default smart priority ordering (Bangladesh top tech employers first, then internship/entry-level/match score)
         def smart_priority_sort(j):
-            is_bd_comp = 1 if (j.get("is_bangladesh") or any(c.lower() in (j.get("company") or "").lower() for c in BD_TECH_COMPANIES)) else 0
+            is_bd_comp = 0 if (
+                j.get("is_bangladesh")
+                or any(c.lower() in (j.get("company") or "").lower() for c in BD_TECH_COMPANIES)
+                or any(c.lower() in (j.get("employer_name") or "").lower() for c in BD_TECH_COMPANIES)
+            ) else 1
             ordering_tuple = get_job_ordering_tuple(
                 j,
                 is_internship_seeking=is_internship_seeking,
                 is_entry_level_seeking=is_entry_level_seeking,
             )
-            if is_bd_active:
-                return (is_bd_comp, *ordering_tuple)
-            return ordering_tuple
+            return (is_bd_comp, *ordering_tuple)
 
-        display_jobs.sort(key=smart_priority_sort, reverse=is_bd_active)
+        display_jobs.sort(key=smart_priority_sort, reverse=False)
 
     # Re-assign cache_id strictly AFTER sorting and ensure all jobs have valid job_ids and registry entries
     for idx, job in enumerate(display_jobs):

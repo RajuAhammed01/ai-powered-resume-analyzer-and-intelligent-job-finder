@@ -45,6 +45,38 @@ Covers all 41 leading Bangladeshi technology firms requested by user:
 """
 
 BD_TECH_COMPANIES = {
+    "bKash": {
+        "name": "bKash",
+        "specialization": "mobile financial services, high-throughput transaction processing, fintech APIs, and cloud microservices",
+        "website": "https://www.bkash.com",
+        "careers_url": "https://careers.bkash.com",
+        "location": "Dhaka, Bangladesh",
+        "tags": ["fintech", "python", "microservices", "kafka", "devops", "cloud", "mobile", "ios", "android"],
+    },
+    "Grameenphone": {
+        "name": "Grameenphone",
+        "specialization": "telecom infrastructure, enterprise cloud, big data analytics, AI, and digital lifestyle platforms",
+        "website": "https://www.grameenphone.com",
+        "careers_url": "https://careers.grameenphone.com",
+        "location": "Dhaka, Bangladesh",
+        "tags": ["telecom", "cloud", "aws", "big data", "spark", "ai/ml", "devops", "cybersecurity"],
+    },
+    "Robi Axiata": {
+        "name": "Robi Axiata",
+        "specialization": "telecom digital services, 4G/5G platforms, big data, analytics, and IoT platforms",
+        "website": "https://www.robi.com.bd",
+        "careers_url": "https://www.robi.com.bd/en/corporate/career",
+        "location": "Dhaka, Bangladesh",
+        "tags": ["telecom", "devops", "kubernetes", "cloud", "big data", "iot", "security"],
+    },
+    "Nagad": {
+        "name": "Nagad",
+        "specialization": "digital financial services, payment gateways, mobile banking, and high-scale transaction infrastructure",
+        "website": "https://nagad.com.bd",
+        "careers_url": "https://nagad.com.bd/career",
+        "location": "Dhaka, Bangladesh",
+        "tags": ["fintech", "java", "go", "microservices", "postgresql", "kafka", "docker"],
+    },
     "BJIT Group": {
         "name": "BJIT Group",
         "specialization": "offshore engineering, QA, embedded systems, and international delivery",

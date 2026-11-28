@@ -22,6 +22,7 @@ from PIL import Image
 from app.extensions import db
 from app.models import JobPreference, Resume, SavedJob, User
 from app.routes.jobs import USER_JOBS_CACHE
+from app.services.bd_companies import BD_TECH_COMPANIES
 from app.services.job_validator import (
     normalize_apply_url,
     is_valid_apply_url,
@@ -166,8 +167,8 @@ def dashboard():
 
             raw_jobs = fetch_jobs(target_role, location, country=target_country)
             processed_jobs = []
-            # Process top 6 prioritized jobs for fast responsive dashboard generation
-            for index, job_item in enumerate(raw_jobs[:6]):
+            # Process up to 25 prioritized candidate jobs for optimal responsive dashboard ranking
+            for index, job_item in enumerate(raw_jobs[:25]):
                 job = dict(job_item)
                 description = job.get("job_description", "")
                 extracted_j = extract_skills(description)
@@ -220,16 +221,24 @@ def dashboard():
                 attach_reliability_to_job(job)
                 processed_jobs.append(job)
 
-            # Filter out unrelated category jobs to ensure top recommended jobs are genuinely suitable
-            compatible_jobs = [j for j in processed_jobs if not j.get("is_unrelated_domain", False)]
-            display_dashboard_jobs = compatible_jobs if compatible_jobs else processed_jobs
-            display_dashboard_jobs.sort(
-                key=lambda j: get_job_ordering_tuple(
+            # Prioritize verified Bangladesh top tech companies, then internship/entry-level/domain match
+            def dashboard_priority_sort(j):
+                is_bd_comp = 0 if (
+                    j.get("is_bangladesh")
+                    or any(c.lower() in (j.get("company") or "").lower() for c in BD_TECH_COMPANIES)
+                    or any(c.lower() in (j.get("employer_name") or "").lower() for c in BD_TECH_COMPANIES)
+                ) else 1
+                ordering_tuple = get_job_ordering_tuple(
                     j,
                     is_internship_seeking=is_internship_seeking,
                     is_entry_level_seeking=is_entry_level_seeking,
                 )
-            )
+                return (is_bd_comp, *ordering_tuple)
+
+            # Filter out unrelated category jobs to ensure top recommended jobs are genuinely suitable
+            compatible_jobs = [j for j in processed_jobs if not j.get("is_unrelated_domain", False)]
+            display_dashboard_jobs = compatible_jobs if compatible_jobs else processed_jobs
+            display_dashboard_jobs.sort(key=dashboard_priority_sort, reverse=False)
 
             # Re-assign cache_id strictly AFTER sorting and ensure all jobs have valid job_ids and registry entries
             for idx, job in enumerate(display_dashboard_jobs):
