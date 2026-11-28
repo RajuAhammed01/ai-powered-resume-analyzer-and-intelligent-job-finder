@@ -173,6 +173,7 @@
             <!-- Real-Time Source Filter -->
             <select id="filter-source" onchange="filterJobs()" class="filter-select-control" style="font-weight: 600; color: #1A6DF7;" title="Filter by Live Provider">
                 <option value="all" {% if selected_source == 'all' %}selected{% endif %}>All Live Sources</option>
+                <option value="weworkremotely" {% if selected_source == 'weworkremotely' %}selected{% endif %}>WeWorkRemotely Live</option>
                 <option value="remotive" {% if selected_source == 'remotive' %}selected{% endif %}>Remotive Live</option>
                 <option value="arbeitnow" {% if selected_source == 'arbeitnow' %}selected{% endif %}>Arbeitnow Live</option>
                 <option value="remoteok" {% if selected_source == 'remoteok' %}selected{% endif %}>RemoteOK Live</option>

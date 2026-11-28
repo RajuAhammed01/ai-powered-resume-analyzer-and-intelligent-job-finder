@@ -1,6 +1,7 @@
 import logging
 import re
 import urllib.parse
+import xml.etree.ElementTree as ET
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from bs4 import BeautifulSoup
 import requests
@@ -397,24 +398,110 @@ def scrape_jobicy(role: str = "", limit: int = 20) -> list[dict]:
     return jobs
 
 
-def scrape_live_jobs(role: str = "", location: str = "Remote", limit: int = 35) -> list[dict]:
+def scrape_weworkremotely(role: str = "", limit: int = 30) -> list[dict]:
+    """
+    Fetch real-time live tech jobs from WeWorkRemotely RSS feeds.
+    Provides direct application links to authentic company postings that actually exist.
+    """
+    jobs = []
+    clean_role = (role or "").strip().lower()
+
+    # Select targeted categories based on role
+    categories = []
+    if any(k in clean_role for k in ["front", "react", "vue", "angular", "ui"]):
+        categories = ["remote-front-end-programming-jobs", "remote-full-stack-programming-jobs"]
+    elif any(k in clean_role for k in ["back", "python", "django", "java", "node", "go", "golang", "c#", ".net"]):
+        categories = ["remote-back-end-programming-jobs", "remote-full-stack-programming-jobs"]
+    elif any(k in clean_role for k in ["devops", "cloud", "aws", "kubernetes", "sre", "sysadmin", "infrastructure"]):
+        categories = ["remote-devops-sysadmin-jobs"]
+    elif any(k in clean_role for k in ["product", "manager", "scrum", "agile"]):
+        categories = ["remote-product-jobs"]
+    else:
+        categories = [
+            "remote-full-stack-programming-jobs",
+            "remote-front-end-programming-jobs",
+            "remote-back-end-programming-jobs",
+            "remote-devops-sysadmin-jobs",
+        ]
+
+    from app.services.skill_extractor import extract_skills
+    all_tokens, discriminating = extract_keywords(role)
+
+    for cat in categories:
+        if len(jobs) >= limit:
+            break
+        url = f"https://weworkremotely.com/categories/{cat}.rss"
+        try:
+            resp = default_api_client.get(url, service_name="WeWorkRemotely", timeout=(2.0, 4.0))
+            if not resp.ok:
+                continue
+            root = ET.fromstring(resp.content)
+            items = root.findall(".//item")
+            for item in items:
+                raw_title = (item.find("title").text or "").strip()
+                if ":" in raw_title:
+                    comp, title = raw_title.split(":", 1)
+                    comp = sanitize_text(comp)
+                    title = sanitize_text(title)
+                else:
+                    comp = "Tech Employer"
+                    title = sanitize_text(raw_title)
+
+                raw_url = normalize_apply_url((item.find("link").text or "").strip(), default_domain="https://weworkremotely.com")
+                if not raw_url or not title or not is_valid_apply_url(raw_url):
+                    continue
+
+                desc_html = item.find("description").text or ""
+                desc = sanitize_text(clean_html(desc_html))
+                tags = extract_skills(desc)
+
+                if clean_role and not _is_job_relevant_to_role(title, tags, desc, discriminating, role):
+                    continue
+
+                pub_date = (item.find("pubDate").text or "").strip()
+
+                jobs.append({
+                    "job_title": title,
+                    "employer_name": comp,
+                    "company": comp,
+                    "job_city": "Remote",
+                    "location": "Remote",
+                    "job_employment_type": "Full-time",
+                    "job_description": desc[:1500] if desc else f"{title} at {comp}.",
+                    "job_apply_link": raw_url,
+                    "job_skills": tags[:8] if tags else ["Software Engineering"],
+                    "salary": "",
+                    "source": "WeWorkRemotely",
+                    "source_type": "live_scraped",
+                    "publication_date": pub_date,
+                })
+                if len(jobs) >= limit:
+                    break
+        except Exception as e:
+            logger.warning(f"Error fetching from WeWorkRemotely ({cat}): {e}")
+
+    return jobs
+
+
+def scrape_live_jobs(role: str = "", location: str = "Remote", limit: int = 40) -> list[dict]:
     """
     Combined multi-source real-time job search orchestrator.
-    Queries Remotive, Arbeitnow, RemoteOK, and Jobicy concurrently in parallel threads.
+    Queries WeWorkRemotely, Arbeitnow, Remotive, RemoteOK, and Jobicy concurrently in parallel threads.
     Every returned job has a verified, direct external application URL and is filtered
     to match the candidate's target career domain.
     """
     clean_role = (role or "Software Engineer").strip()
-    per_source_limit = max(12, limit // 2)
+    per_source_limit = max(15, limit // 2)
 
     all_jobs = []
     seen_keys = set()
 
-    # Query all 4 sources simultaneously for sub-2-second speed
-    with ThreadPoolExecutor(max_workers=4) as executor:
+    # Query all 5 live scraping sources simultaneously for fast responsive performance
+    with ThreadPoolExecutor(max_workers=5) as executor:
         futures = {
-            executor.submit(scrape_remotive, clean_role, per_source_limit): "Remotive",
+            executor.submit(scrape_weworkremotely, clean_role, per_source_limit): "WeWorkRemotely",
             executor.submit(scrape_arbeitnow, clean_role, per_source_limit): "Arbeitnow",
+            executor.submit(scrape_remotive, clean_role, per_source_limit): "Remotive",
             executor.submit(scrape_remoteok, clean_role, per_source_limit): "RemoteOK",
             executor.submit(scrape_jobicy, clean_role, per_source_limit): "Jobicy",
         }
@@ -435,8 +522,8 @@ def scrape_live_jobs(role: str = "", location: str = "Remote", limit: int = 35) 
     if len(all_jobs) < 5:
         _, discriminating = extract_keywords(clean_role)
         fallback_query = discriminating[0] if discriminating else "developer"
-        fallback_remotive = scrape_remotive(fallback_query, limit=10)
-        for job in fallback_remotive:
+        fallback_wwr = scrape_weworkremotely(fallback_query, limit=15)
+        for job in fallback_wwr:
             key = (job["job_title"].lower().strip(), (job["employer_name"] or job["company"]).lower().strip())
             if key not in seen_keys:
                 seen_keys.add(key)

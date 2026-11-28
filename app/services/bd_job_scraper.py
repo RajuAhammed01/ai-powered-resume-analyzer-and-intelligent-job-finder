@@ -10,7 +10,7 @@ from concurrent.futures import ThreadPoolExecutor, as_completed
 import requests
 from bs4 import BeautifulSoup
 
-from app.services.bd_companies import BD_TECH_COMPANIES, SEED_BD_JOBS, get_all_company_names
+from app.services.bd_companies import BD_TECH_COMPANIES, get_all_company_names
 from app.services.job_validator import generate_job_id, normalize_apply_url, is_valid_apply_url
 
 logger = logging.getLogger(__name__)
@@ -162,21 +162,8 @@ def fetch_bangladesh_jobs(role: str = "", company_filter: str = "", limit: int =
             except Exception as e:
                 logger.debug(f"Portal scrape thread error: {e}")
 
-    # Combine with rich seed catalog of all 41 companies
+    # Use solely genuine live-scraped jobs without synthetic or fabricated placeholders
     combined_pool = list(scraped_jobs)
-    seen_keys = {
-        (j["job_title"].lower().strip(), j["company"].lower().strip())
-        for j in scraped_jobs
-    }
-
-    for seed in SEED_BD_JOBS:
-        s_copy = dict(seed)
-        key = (s_copy["job_title"].lower().strip(), s_copy["company"].lower().strip())
-        if key not in seen_keys:
-            seen_keys.add(key)
-            if not s_copy.get("job_id"):
-                s_copy["job_id"] = generate_job_id(s_copy)
-            combined_pool.append(s_copy)
 
     # Filter by specific company if requested
     if clean_company and clean_company.lower() != "all":
